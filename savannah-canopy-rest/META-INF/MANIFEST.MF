@@ -1,0 +1,1 @@
+Main-Class: com.plants_store.savannah_canopy.SavannahCanopyApplication

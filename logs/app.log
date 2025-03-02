@@ -1,0 +1,94 @@
+22:50:10.685 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Starting SavannahCanopyApplication using Java 23.0.2 with PID 24256 (E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy\savannah-canopy-rest\target\classes started by allen in E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy)
+22:50:10.689 [restartedMain] DEBUG com.plants_store.savannah_canopy.SavannahCanopyApplication - Running with Spring Boot v3.4.3, Spring v6.2.3
+22:50:10.691 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - No active profile set, falling back to 1 default profile: "default"
+22:50:13.297 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Started SavannahCanopyApplication in 2.868 seconds (process running for 3.538)
+22:53:32.084 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Starting SavannahCanopyApplication using Java 23.0.2 with PID 23756 (E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy\savannah-canopy-rest\target\classes started by allen in E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy)
+22:53:32.089 [restartedMain] DEBUG com.plants_store.savannah_canopy.SavannahCanopyApplication - Running with Spring Boot v3.4.3, Spring v6.2.3
+22:53:32.090 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - No active profile set, falling back to 1 default profile: "default"
+22:53:34.717 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Started SavannahCanopyApplication in 2.885 seconds (process running for 3.535)
+22:53:45.656 [http-nio-8080-exec-1] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+22:53:45.657 [http-nio-8080-exec-1] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+22:54:29.459 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Starting SavannahCanopyApplication using Java 23.0.2 with PID 1988 (E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy\savannah-canopy-rest\target\classes started by allen in E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy)
+22:54:29.465 [restartedMain] DEBUG com.plants_store.savannah_canopy.SavannahCanopyApplication - Running with Spring Boot v3.4.3, Spring v6.2.3
+22:54:29.466 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - No active profile set, falling back to 1 default profile: "default"
+22:54:32.198 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Started SavannahCanopyApplication in 2.999 seconds (process running for 3.672)
+22:54:35.395 [http-nio-8080-exec-1] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+22:54:35.395 [http-nio-8080-exec-1] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+22:56:47.155 [http-nio-8080-exec-6] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Processing payment for user: allen
+22:56:47.155 [http-nio-8080-exec-6] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Payment processed successfully for user: allen
+23:00:14.341 [http-nio-8080-exec-10] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:00:14.341 [http-nio-8080-exec-10] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:00:14.362 [http-nio-8080-exec-1] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:00:14.362 [http-nio-8080-exec-1] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:05:55.731 [http-nio-8080-exec-4] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:05:55.732 [http-nio-8080-exec-4] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:06:25.727 [http-nio-8080-exec-5] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:06:25.727 [http-nio-8080-exec-5] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:15:40.723 [http-nio-8080-exec-6] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:15:40.723 [http-nio-8080-exec-6] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:15:40.733 [http-nio-8080-exec-9] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:15:40.733 [http-nio-8080-exec-9] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:25:32.925 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Starting SavannahCanopyApplication using Java 23.0.2 with PID 19964 (E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy\savannah-canopy-rest\target\classes started by allen in E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy)
+23:25:32.932 [restartedMain] DEBUG com.plants_store.savannah_canopy.SavannahCanopyApplication - Running with Spring Boot v3.4.3, Spring v6.2.3
+23:25:32.933 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - No active profile set, falling back to 1 default profile: "default"
+23:25:36.658 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Started SavannahCanopyApplication in 4.022 seconds (process running for 4.766)
+23:25:48.427 [http-nio-8080-exec-1] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:25:48.427 [http-nio-8080-exec-1] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:28:50.277 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Starting SavannahCanopyApplication using Java 23.0.2 with PID 20020 (E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy\savannah-canopy-rest\target\classes started by allen in E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy)
+23:28:50.284 [restartedMain] DEBUG com.plants_store.savannah_canopy.SavannahCanopyApplication - Running with Spring Boot v3.4.3, Spring v6.2.3
+23:28:50.285 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - No active profile set, falling back to 1 default profile: "default"
+23:28:54.020 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Started SavannahCanopyApplication in 4.033 seconds (process running for 4.792)
+23:31:02.578 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Starting SavannahCanopyApplication using Java 23.0.2 with PID 19692 (E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy\savannah-canopy-rest\target\classes started by allen in E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy)
+23:31:02.585 [restartedMain] DEBUG com.plants_store.savannah_canopy.SavannahCanopyApplication - Running with Spring Boot v3.4.3, Spring v6.2.3
+23:31:02.585 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - No active profile set, falling back to 1 default profile: "default"
+23:31:06.376 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Started SavannahCanopyApplication in 4.095 seconds (process running for 4.863)
+23:31:11.234 [http-nio-8080-exec-1] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:33:38.754 [http-nio-8080-exec-5] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:33:38.754 [http-nio-8080-exec-5] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:33:51.739 [http-nio-8080-exec-7] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:33:51.739 [http-nio-8080-exec-7] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:33:51.745 [http-nio-8080-exec-8] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:33:51.745 [http-nio-8080-exec-8] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:33:53.730 [http-nio-8080-exec-9] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:33:53.731 [http-nio-8080-exec-9] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:33:56.725 [http-nio-8080-exec-3] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:33:56.725 [http-nio-8080-exec-3] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:33:57.719 [http-nio-8080-exec-2] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:33:57.719 [http-nio-8080-exec-2] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:34:06.731 [http-nio-8080-exec-5] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:34:06.732 [http-nio-8080-exec-5] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:35:42.733 [http-nio-8080-exec-10] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:35:42.733 [http-nio-8080-exec-10] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:35:42.744 [http-nio-8080-exec-1] DEBUG com.plants_store.savannah_canopy.controller.PaymentController - Health check request received
+23:35:42.744 [http-nio-8080-exec-1] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Health check successful
+23:36:20.003 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Starting SavannahCanopyApplication using Java 23.0.2 with PID 8300 (E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy\savannah-canopy-rest\target\classes started by allen in E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy)
+23:36:20.009 [restartedMain] DEBUG com.plants_store.savannah_canopy.SavannahCanopyApplication - Running with Spring Boot v3.4.3, Spring v6.2.3
+23:36:20.009 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - No active profile set, falling back to 1 default profile: "default"
+23:36:23.648 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Started SavannahCanopyApplication in 3.935 seconds (process running for 4.694)
+23:37:02.898 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Starting SavannahCanopyApplication using Java 23.0.2 with PID 21828 (E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy\savannah-canopy-rest\target\classes started by allen in E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy)
+23:37:02.903 [restartedMain] DEBUG com.plants_store.savannah_canopy.SavannahCanopyApplication - Running with Spring Boot v3.4.3, Spring v6.2.3
+23:37:02.904 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - No active profile set, falling back to 1 default profile: "default"
+23:37:06.518 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Started SavannahCanopyApplication in 3.915 seconds (process running for 4.673)
+23:43:36.666 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Starting SavannahCanopyApplication using Java 23.0.2 with PID 25868 (E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy\savannah-canopy-rest\target\classes started by allen in E:\2.Online MS CS\2nd Year\4th Semester Spring 2025\CPSC 597A_B\project_implementation\repo\Savannah-canopy)
+23:43:36.671 [restartedMain] DEBUG com.plants_store.savannah_canopy.SavannahCanopyApplication - Running with Spring Boot v3.4.3, Spring v6.2.3
+23:43:36.672 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - No active profile set, falling back to 1 default profile: "default"
+23:43:40.613 [restartedMain] INFO  com.plants_store.savannah_canopy.SavannahCanopyApplication - Started SavannahCanopyApplication in 4.254 seconds (process running for 5.054)
+23:43:46.655 [http-nio-8080-exec-1] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:44:23.732 [http-nio-8080-exec-3] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:44:39.371 [http-nio-8080-exec-4] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:46:12.135 [http-nio-8080-exec-8] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:46:13.776 [http-nio-8080-exec-9] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:46:15.802 [http-nio-8080-exec-10] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:46:16.855 [http-nio-8080-exec-1] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:46:23.286 [http-nio-8080-exec-2] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:46:47.964 [http-nio-8080-exec-3] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:46:51.378 [http-nio-8080-exec-4] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:46:55.632 [http-nio-8080-exec-6] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:50:36.052 [http-nio-8080-exec-7] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:50:46.399 [http-nio-8080-exec-8] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:50:50.010 [http-nio-8080-exec-9] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:50:51.390 [http-nio-8080-exec-10] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:50:52.229 [http-nio-8080-exec-1] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:50:53.036 [http-nio-8080-exec-2] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:50:53.925 [http-nio-8080-exec-3] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
+23:50:55.910 [http-nio-8080-exec-4] INFO  com.plants_store.savannah_canopy.controller.PaymentController - Plants retreived successfully
