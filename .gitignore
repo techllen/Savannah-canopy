@@ -32,4 +32,4 @@ build/
 ### VS Code ###
 .vscode/
 
-./savannah-canopy-web/node_modules/
+savannah-canopy-web/node_modules/
