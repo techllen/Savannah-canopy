@@ -33,3 +33,8 @@ build/
 .vscode/
 
 savannah-canopy-web/node_modules/
+
+#exluding terraform files
+savannah-canopy-rest/terraform/.terraform/providers/registry.terraform.io/hashicorp/aws/5.89.0/windows_amd64
+
+savannah-canopy-rest/terraform/.terraform/providers/**/terraform-provider-aws_*_x5.exe
