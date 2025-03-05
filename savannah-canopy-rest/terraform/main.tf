@@ -141,7 +141,7 @@ resource "aws_codepipeline" "plantstore_pipeline" {
       category         = "Source"
       owner            = "ThirdParty"
       provider         = "GitHub"
-      version          = "2"
+      version          = "1"
       output_artifacts = ["source_output"]
       configuration = {
         Owner      = var.github_repo_owner
