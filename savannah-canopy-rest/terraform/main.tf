@@ -78,7 +78,7 @@ resource "aws_codebuild_project" "backend_build" {
   name         = "plantstore-backend-build"
   service_role = aws_iam_role.codebuild_role.arn # codebuild role
   artifacts {
-    type     = "S3"
+    type     = "CODEPIPELINE"
     location = aws_s3_bucket.codepipeline_bucket.id
     name     = "backend-output"
   }
@@ -101,7 +101,7 @@ resource "aws_codebuild_project" "frontend_build" {
   name         = "plantstore-frontend-build"
   service_role = aws_iam_role.codebuild_role.arn # codebuild role
   artifacts {
-    type     = "S3"
+    type     = "CODEPIPELINE"
     location = aws_s3_bucket.codepipeline_bucket.id
     name     = "frontend-output"
   }
