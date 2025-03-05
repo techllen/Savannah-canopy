@@ -45,6 +45,26 @@ resource "aws_iam_role_policy_attachment" "codepipeline_policy" {
 # set up IAM roles, S3 bucket, CodeBuild projects, and CodePipeline
 # --------------------------------------------------------------------------------------------------------------------
 
+# IAM Role for CodeBuild
+resource "aws_iam_role" "codebuild_role" {
+  name = "codebuild-role"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "codebuild.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+}
+
 # Create an S3 Bucket for Artifacts
 resource "aws_s3_bucket" "codepipeline_bucket" {
   bucket = "plantstore-codepipeline-artifacts"
@@ -56,7 +76,7 @@ resource "aws_s3_bucket" "codepipeline_bucket" {
 
 resource "aws_codebuild_project" "backend_build" {
   name         = "plantstore-backend-build"
-  service_role = aws_iam_role.codepipeline_role.arn # codepipeline role
+  service_role = aws_iam_role.codebuild_role.arn # codebuild role
   artifacts {
     type     = "S3"
     location = aws_s3_bucket.codepipeline_bucket.id
@@ -79,7 +99,7 @@ resource "aws_codebuild_project" "backend_build" {
 
 resource "aws_codebuild_project" "frontend_build" {
   name         = "plantstore-frontend-build"
-  service_role = aws_iam_role.codepipeline_role.arn # codepipeline role
+  service_role = aws_iam_role.codebuild_role.arn # codebuild role
   artifacts {
     type     = "S3"
     location = aws_s3_bucket.codepipeline_bucket.id
