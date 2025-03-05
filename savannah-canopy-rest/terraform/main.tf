@@ -65,6 +65,12 @@ resource "aws_iam_role" "codebuild_role" {
 EOF
 }
 
+# Adding codestar for automatic pipeline trigger and enhanced security
+resource "aws_codestarconnections_connection" "github_connection" {
+  name          = "my-github-connection" # Replace with a suitable name
+  provider_type = "GitHub"
+}
+
 # Create an S3 Bucket for Artifacts
 resource "aws_s3_bucket" "codepipeline_bucket" {
   bucket = "plantstore-codepipeline-artifacts"
@@ -133,21 +139,39 @@ resource "aws_codepipeline" "plantstore_pipeline" {
     type     = "S3"
   }
 
+  # stage {
+  #   name = "Source"
+  #
+  #   action {
+  #     name             = "GitHub_Source"
+  #     category         = "Source"
+  #     owner            = "ThirdParty"
+  #     provider         = "GitHub"
+  #     version          = "1"
+  #     output_artifacts = ["source_output"]
+  #     configuration = {
+  #       Owner      = var.github_repo_owner
+  #       Repo       = var.github_repo_name
+  #       Branch     = "main"
+  #       OAuthToken = var.github_oauth_token
+  #     }
+  #   }
+  # }
+
   stage {
     name = "Source"
-
     action {
       name             = "GitHub_Source"
       category         = "Source"
-      owner            = "ThirdParty"
-      provider         = "GitHub"
+      owner            = "AWS" # using AWS
+      provider         = "CodeStarSourceConnection" #use code star instead of GitHub
       version          = "1"
       output_artifacts = ["source_output"]
+
       configuration = {
-        Owner      = var.github_repo_owner
-        Repo       = var.github_repo_name
-        Branch     = "main"
-        OAuthToken = var.github_oauth_token
+        ConnectionArn    = aws_codestarconnections_connection.github_connection.arn
+        FullRepositoryId = "${var.github_repo_owner}/${var.github_repo_name}" #  repository ID
+        BranchName       = "main"
       }
     }
   }
