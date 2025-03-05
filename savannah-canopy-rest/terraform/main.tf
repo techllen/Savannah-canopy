@@ -67,7 +67,7 @@ EOF
 
 # Adding codestar for automatic pipeline trigger and enhanced security
 resource "aws_codestarconnections_connection" "github_connection" {
-  name          = "my-github-connection" # Replace with a suitable name
+  name          = "my-github-connection"
   provider_type = "GitHub"
 }
 
