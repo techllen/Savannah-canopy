@@ -38,3 +38,5 @@ savannah-canopy-web/node_modules/
 savannah-canopy-rest/terraform/.terraform/providers/registry.terraform.io/hashicorp/aws/5.89.0/windows_amd64
 
 savannah-canopy-rest/terraform/.terraform/providers/**/terraform-provider-aws_*_x5.exe
+
+savannah-canopy-rest/terraform/terraform.tfvars

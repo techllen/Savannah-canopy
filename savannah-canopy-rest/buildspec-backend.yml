@@ -1,0 +1,14 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo Installing Maven...
+      - mvn --version
+  build:
+    commands:
+      - echo Building the Spring Boot app...
+      - mvn clean package
+artifacts:
+  files:
+    - target/*.jar
