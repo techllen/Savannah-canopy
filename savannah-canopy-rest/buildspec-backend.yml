@@ -7,9 +7,9 @@ phases:
       - mvn --version
   build:
     commands:
-      - echo Building the Spring Boot app...
       - pwd
       - ls -ltr
+      - echo Building the Spring Boot app...
       - mvn clean package
 artifacts:
   files:
