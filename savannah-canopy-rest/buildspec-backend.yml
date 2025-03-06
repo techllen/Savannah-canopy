@@ -8,6 +8,8 @@ phases:
   build:
     commands:
       - echo Building the Spring Boot app...
+      - pwd
+      - ls -ltr
       - mvn clean package
 artifacts:
   files:

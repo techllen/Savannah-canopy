@@ -1,5 +1,7 @@
+# ----------------------------------------------------------------------------------------------------------------------
 # credentials are fetched from credential file
 # provider configurations
+# ----------------------------------------------------------------------------------------------------------------------
 terraform {
   required_providers {
     aws = {
@@ -13,9 +15,12 @@ terraform {
 provider "aws" {
   region = "us-east-1" # deployment region region
 }
+
 # ---------------------------------------------------------------------------------------------------------------------
+# IAM Roles
+# ---------------------------------------------------------------------------------------------------------------------
+
 # IAM Role for CodePipeline for AWS to access github
-# ---------------------------------------------------------------------------------------------------------------------
 resource "aws_iam_role" "codepipeline_role" {
   name = "codepipeline-role" # role  name
 
@@ -41,9 +46,6 @@ resource "aws_iam_role_policy_attachment" "codepipeline_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess"
   role       = aws_iam_role.codepipeline_role.name
 }
-# --------------------------------------------------------------------------------------------------------------------
-# set up IAM roles, S3 bucket, CodeBuild projects, and CodePipeline
-# --------------------------------------------------------------------------------------------------------------------
 
 # IAM Role for CodeBuild
 resource "aws_iam_role" "codebuild_role" {
@@ -65,10 +67,102 @@ resource "aws_iam_role" "codebuild_role" {
 EOF
 }
 
+# ---------------------------------------------------------------------------------------------------------------------
+# IAM Policies for CodePipeline Role
+# ---------------------------------------------------------------------------------------------------------------------
+
+# Add an inline policy to the codepipeline_role for S3 access
+resource "aws_iam_role_policy" "codepipeline_s3_policy" {
+  name = "codepipeline-s3-policy"
+  role = aws_iam_role.codebuild_role.id
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::plantstore-codepipeline-artifacts/*"
+      ]
+    }
+  ]
+}
+EOF
+}
+
+# inline policy for the codepipeline-role that specifically allows it to interact with CodeBuild
+resource "aws_iam_role_policy" "codepipeline_codebuild_policy" {
+  name = "codepipeline-codebuild-policy"
+  role = aws_iam_role.codepipeline_role.id
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "codebuild:StartBuild",
+        "codebuild:BatchGetBuilds",
+        "codebuild:StopBuild",
+        "codebuild:ListBuildsForProject",
+        "codebuild:BatchGetProjects"
+      ],
+      "Resource": [
+        "arn:aws:codebuild:us-east-1:539247457480:project/plantstore-backend-build",
+        "arn:aws:codebuild:us-east-1:539247457480:project/plantstore-frontend-build"
+      ]
+    }
+  ]
+}
+EOF
+}
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Add an inline policy to the codebuild_role for CloudWatch Logs access
+# ----------------------------------------------------------------------------------------------------------------------
+resource "aws_iam_role_policy" "codebuild_logs_policy" {
+  name = "codebuild-logs-policy"
+  role = aws_iam_role.codebuild_role.id
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": [
+        "arn:aws:logs:us-east-1:539247457480:log-group:/aws/codebuild/*"
+      ]
+    }
+  ]
+}
+EOF
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# S3 Bucket for Artifacts
+# ---------------------------------------------------------------------------------------------------------------------
+
 # Create an S3 Bucket for Artifacts
 resource "aws_s3_bucket" "codepipeline_bucket" {
   bucket = "plantstore-codepipeline-artifacts"
 }
+
+# ---------------------------------------------------------------------------------------------------------------------
+# CodeBuild Projects
+# ---------------------------------------------------------------------------------------------------------------------
 
 # Define CodeBuild Projects
 # two CodeBuild projects—one for building the backend and one for the frontend , uses buildspec-backend.yml and
@@ -119,6 +213,10 @@ resource "aws_codebuild_project" "frontend_build" {
     buildspec = file("../buildspec-frontend.yml")
   }
 }
+
+# ---------------------------------------------------------------------------------------------------------------------
+# CodePipeline
+# ---------------------------------------------------------------------------------------------------------------------
 
 # Define the CodePipeline with 3 stages
 # Source Stage: Retrieves code from GitHub.
