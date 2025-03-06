@@ -256,6 +256,9 @@ resource "aws_codepipeline" "plantstore_pipeline" {
     type     = "S3"
   }
 
+  # adding pipeline type
+  pipeline_type = "V2"
+
   stage {
     name = "Source"
 
