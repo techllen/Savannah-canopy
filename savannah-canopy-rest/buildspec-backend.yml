@@ -7,9 +7,14 @@ phases:
       - mvn --version
   build:
     commands:
+      - echo listing files...
+      - ls
+      - pwd
       - echo Building the Spring Boot app...
-      - cd /savannah-canopy-rest
       - mvn clean package
+      - echo listing files...
+      - ls
+      - pwd
 artifacts:
   files:
     - target/*.jar
