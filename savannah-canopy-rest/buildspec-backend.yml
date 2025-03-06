@@ -7,9 +7,8 @@ phases:
       - mvn --version
   build:
     commands:
-      - pwd
-      - ls -ltr
       - echo Building the Spring Boot app...
+      - cd /savannah-canopy-rest
       - mvn clean package
 artifacts:
   files:
