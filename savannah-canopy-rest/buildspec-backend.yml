@@ -9,7 +9,7 @@ phases:
     commands:
       - echo Building the Spring Boot app...
       - echo listing files...
-      - cd savannah-canopy-rest
+      - cd /codebuild/output/src2186584640/src/savannah-canopy-rest
       - ls
       - pwd
       - mvn clean package
