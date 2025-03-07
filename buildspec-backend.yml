@@ -8,8 +8,6 @@ phases:
   build:
     commands:
       - echo Building the Spring Boot app...
-#      - cd savannah-canopy-rest
-#      - mvn clean package
       - mvn -f savannah-canopy-rest/pom.xml clean package
       - ls savannah-canopy-rest/target
       - pwd

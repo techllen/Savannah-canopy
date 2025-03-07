@@ -12,6 +12,6 @@ phases:
       - echo Building the React app...
       - npm run build
 artifacts:
+  base-directory: savannah-canopy-web/build
   files:
     - '**/*'
-base-directory: savannah-canopy-web/build
