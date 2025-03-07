@@ -102,6 +102,11 @@ resource "aws_iam_role_policy" "codebuild_s3_policy" {
       "Resource": [
         "arn:aws:s3:::plantstore-codepipeline-artifacts/*"
       ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
     }
   ]
 }
