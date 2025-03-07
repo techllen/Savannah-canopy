@@ -8,14 +8,10 @@ phases:
   build:
     commands:
       - echo Building the Spring Boot app...
-      - echo listing files...
       - cd savannah-canopy-rest
-      - ls
-      - pwd
       - mvn clean package
-      - echo listing files...
       - ls
       - pwd
 artifacts:
   files:
-    - target/*.jar
+    - savannah-canopy-rest/target/*.jar
