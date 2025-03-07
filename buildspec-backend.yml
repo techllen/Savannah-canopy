@@ -18,6 +18,12 @@
 
 version: 0.2
 
+#setting up environmental variables
+env:
+  variables:
+    AWS_ACCOUNT_ID: "539247457480"
+    AWS_DEFAULT_REGION: "us-east-1"
+
 phases:
   install:
     commands:
