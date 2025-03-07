@@ -12,6 +12,7 @@ phases:
       - mvn clean package
       - ls
       - pwd
+      - cd ../
 artifacts:
   files:
     - savannah-canopy-rest/target/*.jar
