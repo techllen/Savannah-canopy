@@ -35,15 +35,15 @@ variable "ecs_service_name_frontend" {
   default     = "plantstore-frontend-service"
 }
 
-variable "ecr_repository_url_backend" {
-  description = "The URL of the ECR repository for the backend"
-  default     = "539247457480.dkr.ecr.us-east-1.amazonaws.com/plantstore-backend-registry"
-}
-
-variable "ecr_repository_url_frontend" {
-  description = "The URL of the ECR repository for the frontend"
-  default     = "539247457480.dkr.ecr.us-east-1.amazonaws.com/plantstore-frontend-registry"
-}
+# variable "ecr_repository_url_backend" {
+#   description = "The URL of the ECR repository for the backend"
+#   default     = "539247457480.dkr.ecr.us-east-1.amazonaws.com/plantstore-backend-registry"
+# }
+#
+# variable "ecr_repository_url_frontend" {
+#   description = "The URL of the ECR repository for the frontend"
+#   default     = "539247457480.dkr.ecr.us-east-1.amazonaws.com/plantstore-frontend-registry"
+# }
 
 variable "aws_region" {
   description = "The AWS region to deploy to"

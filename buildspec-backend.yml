@@ -1,3 +1,21 @@
+#version: 0.2
+#
+#phases:
+#  install:
+#    commands:
+#      - echo Installing Maven...
+#      - mvn --version
+#  build:
+#    commands:
+#      - echo Building the Spring Boot app...
+#      - mvn -f savannah-canopy-rest/pom.xml clean package
+#      - ls savannah-canopy-rest/target
+#      - pwd
+#artifacts:
+#  files:
+#    - savannah-canopy-rest/target/*.jar
+
+
 version: 0.2
 
 phases:
@@ -5,12 +23,22 @@ phases:
     commands:
       - echo Installing Maven...
       - mvn --version
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
   build:
     commands:
       - echo Building the Spring Boot app...
       - mvn -f savannah-canopy-rest/pom.xml clean package
-      - ls savannah-canopy-rest/target
-      - pwd
+      - echo Building the Docker image...
+      - docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-backend-registry:latest .
+      - docker tag $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-backend-registry:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-backend-registry:$CODEBUILD_RESOLVED_SOURCE_VERSION
+  post_build:
+    commands:
+      - echo Pushing the Docker image...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-backend-registry:latest
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-backend-registry:$CODEBUILD_RESOLVED_SOURCE_VERSION
 artifacts:
   files:
     - savannah-canopy-rest/target/*.jar

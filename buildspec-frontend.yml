@@ -1,3 +1,21 @@
+#version: 0.2
+#
+#phases:
+#  install:
+#    commands:
+#      - echo Installing Node...
+#      - cd savannah-canopy-web
+#      - node --version
+#      - npm install
+#  build:
+#    commands:
+#      - echo Building the React app...
+#      - npm run build
+#artifacts:
+#  base-directory: savannah-canopy-web/build
+#  files:
+#    - '**/*'
+
 version: 0.2
 
 phases:
@@ -7,10 +25,22 @@ phases:
       - cd savannah-canopy-web
       - node --version
       - npm install
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
   build:
     commands:
       - echo Building the React app...
       - npm run build
+      - echo Building the Docker image...
+      - docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest .
+      - docker tag $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:$CODEBUILD_RESOLVED_SOURCE_VERSION
+  post_build:
+    commands:
+      - echo Pushing the Docker image...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:$CODEBUILD_RESOLVED_SOURCE_VERSION
 artifacts:
   base-directory: savannah-canopy-web/build
   files:

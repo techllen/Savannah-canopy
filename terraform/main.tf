@@ -1,3 +1,15 @@
+# Define locals for ECR repository URLs
+# Fetch the current AWS account ID
+data "aws_caller_identity" "current" {}
+
+# Fetch the current AWS region
+data "aws_region" "current" {}
+
+locals {
+  ecr_repository_url_backend  = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com/plantstore-backend-registry"
+  ecr_repository_url_frontend = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com/plantstore-frontend-registry"
+}
+
 # ----------------------------------------------------------------------------------------------------------------------
 # credentials are fetched from credential file
 # provider configurations
@@ -302,7 +314,7 @@ resource "aws_ecs_task_definition" "backend_task" {
 [
   {
     "name": "backend",
-    "image": "${var.ecr_repository_url_backend}:latest",
+    "image": "${local.ecr_repository_url_backend}:latest",
     "portMappings": [
       {
         "containerPort": 8080,
@@ -327,7 +339,7 @@ resource "aws_ecs_task_definition" "frontend_task" {
 [
   {
     "name": "frontend",
-    "image": "${var.ecr_repository_url_frontend}:latest",
+    "image": "${local.ecr_repository_url_frontend}:latest",
     "portMappings": [
       {
         "containerPort": 3000,
