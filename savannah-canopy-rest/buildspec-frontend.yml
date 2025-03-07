@@ -4,6 +4,7 @@ phases:
   install:
     commands:
       - echo Installing Node...
+      - cd savannah-canopy-web
       - node --version
       - npm install
   build:
@@ -13,4 +14,4 @@ phases:
 artifacts:
   files:
     - '**/*'
-base-directory: build
+base-directory: savannah-canopy-web/build
