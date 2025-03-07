@@ -1,0 +1,6 @@
+[
+  {
+    "name": "backend",
+    "imageUri": "${var.ecr_repository_url_backend}:latest"
+  }
+]

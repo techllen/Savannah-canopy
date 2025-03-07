@@ -239,6 +239,185 @@ resource "aws_codebuild_project" "frontend_build" {
   }
 }
 
+# ----------------------------------------------------------------------------------------------------------------------
+# ECR Repositories
+# ----------------------------------------------------------------------------------------------------------------------
+resource "aws_ecr_repository" "backend_registry" {
+  name = "plantstore-backend-registry"
+}
+
+resource "aws_ecr_repository" "frontend_registry" {
+  name = "plantstore-frontend-registry"
+}
+
+# ----------------------------------------------------------------------------------------------------------------------
+# ECS Cluster
+# ----------------------------------------------------------------------------------------------------------------------
+resource "aws_ecs_cluster" "plantstore_cluster" {
+  name = var.ecs_cluster_name
+}
+
+# ----------------------------------------------------------------------------------------------------------------------
+# ECS Task Execution Role
+# ----------------------------------------------------------------------------------------------------------------------
+
+# Create an IAM role for ECS task execution
+resource "aws_iam_role" "ecs_tasks_execution_role" {
+  name = "ecs-task-execution-role"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ecs-tasks.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+}
+
+# Attach the AWS managed policy for ECS Task Execution
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_policy" {
+  role       = aws_iam_role.ecs_tasks_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+# ----------------------------------------------------------------------------------------------------------------------
+# ECS Task Definitions
+# ----------------------------------------------------------------------------------------------------------------------
+resource "aws_ecs_task_definition" "backend_task" {
+  family                   = "backend-task"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.ecs_tasks_execution_role.arn
+
+  container_definitions = <<DEFINITION
+[
+  {
+    "name": "backend",
+    "image": "${var.ecr_repository_url_backend}:latest",
+    "portMappings": [
+      {
+        "containerPort": 8080,
+        "hostPort": 8080
+      }
+    ],
+    "essential": true
+  }
+]
+DEFINITION
+}
+
+resource "aws_ecs_task_definition" "frontend_task" {
+  family                   = "frontend-task"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.ecs_tasks_execution_role.arn
+
+  container_definitions = <<DEFINITION
+[
+  {
+    "name": "frontend",
+    "image": "${var.ecr_repository_url_frontend}:latest",
+    "portMappings": [
+      {
+        "containerPort": 3000,
+        "hostPort": 3000
+      }
+    ],
+    "essential": true
+  }
+]
+DEFINITION
+}
+
+# # ---------------------------------------------------------------------------------------------------------------------
+# # ECS Services security groups
+# # ---------------------------------------------------------------------------------------------------------------------
+# Security Group for Backend Service
+resource "aws_security_group" "backend_sg" {
+  name        = "backend-sg"
+  description = "Security group for backend service"
+  vpc_id      = "vpc-085257437561e6789" # Replace with your VPC ID
+
+  # Allow inbound traffic on port 8080 from anywhere
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Security Group for Frontend Service
+resource "aws_security_group" "frontend_sg" {
+  name        = "frontend-sg"
+  description = "Security group for frontend service"
+  vpc_id      = "vpc-085257437561e6789" # Replace with your VPC ID
+
+  # Allow inbound traffic on port 3000 from anywhere
+  ingress {
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# # ---------------------------------------------------------------------------------------------------------------------
+# # ECS Services
+# # ---------------------------------------------------------------------------------------------------------------------
+resource "aws_ecs_service" "backend_service" {
+  name            = var.ecs_service_name_backend
+  cluster         = aws_ecs_cluster.plantstore_cluster.id
+  task_definition = aws_ecs_task_definition.backend_task.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  network_configuration {
+    subnets          = ["subnet-004c597f51f5a111f"]       # Replace with your subnet IDs
+    security_groups  = [aws_security_group.backend_sg.id] # Replace with your security group IDs
+    assign_public_ip = true
+  }
+}
+
+resource "aws_ecs_service" "frontend_service" {
+  name            = var.ecs_service_name_frontend
+  cluster         = aws_ecs_cluster.plantstore_cluster.id
+  task_definition = aws_ecs_task_definition.frontend_task.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  network_configuration {
+    subnets          = ["subnet-015f9ef9f50348937"]        # Replace with your subnet IDs
+    security_groups  = [aws_security_group.frontend_sg.id] # Replace with your security group IDs
+    assign_public_ip = true
+  }
+}
+
 # ---------------------------------------------------------------------------------------------------------------------
 # CodePipeline
 # ---------------------------------------------------------------------------------------------------------------------
@@ -311,21 +490,42 @@ resource "aws_codepipeline" "plantstore_pipeline" {
     }
   }
 
-  # stage {
-  #   name = "Deploy"
-  #
-  #   action {
-  #     name            = "Deploy_to_ECS"
-  #     category        = "Deploy"
-  #     owner           = "AWS"
-  #     provider        = "ECS"
-  #     input_artifacts = ["backend_build_output", "frontend_build_output"]
-  #     version         = "1"
-  #     configuration = {
-  #       ClusterName = var.ecs_cluster_name   # Define in your variables
-  #       ServiceName = var.ecs_service_name   # Define in your variables
-  #       FileName    = "imagedefinitions.json"
-  #     }
-  #   }
-  # }
+  # ---------------------------------------------------------------------------------------------------------------------
+  # Deploying to ECS
+  # ---------------------------------------------------------------------------------------------------------------------
+  stage {
+    name = "Deploy_backend"
+
+    action {
+      name            = "Deploy_to_ECS_backend"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "ECS"
+      input_artifacts = ["backend_build_output"]
+      version         = "1"
+      configuration = {
+        ClusterName = aws_ecs_cluster.plantstore_cluster.name
+        ServiceName = aws_ecs_service.backend_service.name
+        FileName    = "imagedefinitions-backend.json"
+      }
+    }
+  }
+
+  stage {
+    name = "Deploy_frontend"
+
+    action {
+      name            = "Deploy_to_ECS_frontend"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "ECS"
+      input_artifacts = ["frontend_build_output"]
+      version         = "1"
+      configuration = {
+        ClusterName = aws_ecs_cluster.plantstore_cluster.name
+        ServiceName = aws_ecs_service.frontend_service.name
+        FileName    = "imagedefinitions-frontend.json"
+      }
+    }
+  }
 }
