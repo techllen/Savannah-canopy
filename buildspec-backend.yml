@@ -38,7 +38,7 @@ phases:
       - echo Building the Spring Boot app...
       - mvn -f savannah-canopy-rest/pom.xml clean package
       - echo Building the Docker image...
-      - docker build f savannah-canopy-rest/Dockerfile -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-backend-registry:latest .
+      - docker build -f savannah-canopy-rest/Dockerfile -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-backend-registry:latest .
       - docker tag $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-backend-registry:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-backend-registry:$CODEBUILD_RESOLVED_SOURCE_VERSION
   post_build:
     commands:
