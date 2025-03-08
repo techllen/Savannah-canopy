@@ -106,7 +106,8 @@
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<version>3.4.3</version>
 				<configuration>
-					<skip>true</skip>
+					<mainClass>com.plants_store.savannah_canopy.SavannahCanopyApplication</mainClass>
+					<skip>false</skip>
 					<excludes>
 						<exclude>
 							<groupId>org.projectlombok</groupId>
