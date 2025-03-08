@@ -80,7 +80,7 @@ EOF
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
-# IAM Policies for CodePipeline Role
+# IAM Policies for CodeBuild Role
 # ---------------------------------------------------------------------------------------------------------------------
 
 # Add an inline policy to the codebuild_role for S3 access
@@ -112,12 +112,30 @@ resource "aws_iam_role_policy" "codebuild_s3_policy" {
       "Effect": "Allow",
       "Action": "ecr:InitiateLayerUpload",
       "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ecr:UploadLayerPart",
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ecr:CompleteLayerUpload",
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ecr:PutImage",
+      "Resource": "*"
     }
   ]
 }
 EOF
 }
 
+# ---------------------------------------------------------------------------------------------------------------------
+# IAM Policies for CodePipeline Role
+# ---------------------------------------------------------------------------------------------------------------------
 # Add an inline policy to the codepipeline_role for S3 access
 resource "aws_iam_role_policy" "codepipeline_s3_policy" {
   name = "codepipeline-s3-policy"
