@@ -239,7 +239,7 @@ resource "aws_secretsmanager_secret" "dockerhub_access_token" {
 }
 
 resource "aws_secretsmanager_secret_version" "dockerhub_access_token_version" {
-  secret_id = aws_secretsmanager_secret.dockerhub_access_token.id
+  secret_id     = aws_secretsmanager_secret.dockerhub_access_token.id
   secret_string = var.dockerhub_access_token
 }
 
