@@ -373,6 +373,48 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_policy" {
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
+# ECS roles
+# ----------------------------------------------------------------------------------------------------------------------
+#IAM policy that grants the necessary ECS permissions.
+resource "aws_iam_policy" "codepipeline_ecs_deploy_policy" {
+  name        = "codepipeline-ecs-deploy-policy"
+  description = "Policy to allow CodePipeline to deploy to ECS"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "ecs:UpdateService",
+          "ecs:DescribeServices",
+          "ecs:DescribeTaskDefinition",
+          "ecs:RegisterTaskDefinition",
+          "iam:PassRole",
+          "elasticloadbalancing:*",
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        Resource = ["*"]
+      },
+      {
+        Effect = "Allow",
+        Action = ["iam:PassRole"],
+        Resource = [aws_iam_role.ecs_tasks_execution_role.arn]
+      }
+    ]
+  })
+}
+
+# Attach the newly created policy to the codepipeline_role
+resource "aws_iam_role_policy_attachment" "codepipeline_ecs_deploy_attachment" {
+  role       = aws_iam_role.codepipeline_role.name
+  policy_arn = aws_iam_policy.codepipeline_ecs_deploy_policy.arn
+}
+
+# ----------------------------------------------------------------------------------------------------------------------
 # ECS Task Definitions
 # ----------------------------------------------------------------------------------------------------------------------
 resource "aws_ecs_task_definition" "backend_task" {

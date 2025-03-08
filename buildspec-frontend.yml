@@ -88,8 +88,9 @@ phases:
       - echo Pushing the Docker image...
       - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest
       - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:$CODEBUILD_RESOLVED_SOURCE_VERSION
+      - echo Moving image definitions to build directory...
+      - cp ../imagedefinitions-frontend.json ./savannah-canopy-web/build/
 artifacts:
   base-directory: savannah-canopy-web/build
   files:
     - '**/*'
-    - ../imagedefinitions-frontend.json
