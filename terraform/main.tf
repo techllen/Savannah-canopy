@@ -107,6 +107,11 @@ resource "aws_iam_role_policy" "codebuild_s3_policy" {
       "Effect": "Allow",
       "Action": "ecr:GetAuthorizationToken",
       "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ecr:InitiateLayerUpload",
+      "Resource": "*"
     }
   ]
 }

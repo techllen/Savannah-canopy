@@ -40,7 +40,8 @@ phases:
       - echo Building the React app...
       - npm run build
       - echo Building the Docker image...
-      - docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest .
+#      - docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest . #looks for docker file
+      - docker build -load -f Dockerfile -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest . #looks for docker file
       - docker tag $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:$CODEBUILD_RESOLVED_SOURCE_VERSION
   post_build:
     commands:
