@@ -49,3 +49,4 @@ phases:
 artifacts:
   files:
     - savannah-canopy-rest/target/*.jar
+    - imagedefinitions-backend.json #provide information to CodePipeline (or other deployment tools) about where to fetch the image from ECR

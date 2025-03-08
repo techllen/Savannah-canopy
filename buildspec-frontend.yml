@@ -52,3 +52,4 @@ artifacts:
   base-directory: savannah-canopy-web/build
   files:
     - '**/*'
+    - ../imagedefinitions-frontend.json #provide information to CodePipeline (or other deployment tools) about where to fetch the image from ECR
