@@ -231,6 +231,46 @@ resource "aws_s3_bucket" "codepipeline_bucket" {
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
+# Docker hub access token
+# ---------------------------------------------------------------------------------------------------------------------
+# Create an AWS Secrets Manager Secret
+resource "aws_secretsmanager_secret" "dockerhub_access_token" {
+  name = "dockerhub-access-token"
+}
+
+resource "aws_secretsmanager_secret_version" "dockerhub_access_token_version" {
+  secret_id = aws_secretsmanager_secret.dockerhub_access_token.id
+  secret_string = var.dockerhub_access_token
+}
+
+# Grant CodeBuild Access to the Secret
+# resource "aws_iam_role_policy_attachment" "codebuild_secrets_access" {
+#   policy_arn = "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+#   role       = aws_iam_role.codebuild_role.name
+# }
+
+resource "aws_iam_policy" "codebuild_secrets_policy" {
+  name        = "codebuild-secrets-policy"
+  description = "Policy to allow CodeBuild to access Docker Hub access token"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = ["secretsmanager:GetSecretValue"],
+        Resource = aws_secretsmanager_secret.dockerhub_access_token.arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "codebuild_secrets_access" {
+  policy_arn = aws_iam_policy.codebuild_secrets_policy.arn
+  role       = aws_iam_role.codebuild_role.name
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
 # CodeBuild Projects
 # ---------------------------------------------------------------------------------------------------------------------
 

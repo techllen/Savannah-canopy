@@ -16,9 +16,47 @@
 #  files:
 #    - '**/*'
 
+#version: 0.2
+#
+##setting up environmental variables
+#env:
+#  variables:
+#    AWS_ACCOUNT_ID: "539247457480"
+#    AWS_DEFAULT_REGION: "us-east-1"
+#
+#phases:
+#  install:
+#    commands:
+#      - echo Installing Node...
+#      - cd savannah-canopy-web
+#      - node --version
+#      - npm install
+#  pre_build:
+#    commands:
+#      - echo Logging in to Amazon ECR...
+#      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+#  build:
+#    commands:
+#      - echo Building the React app...
+#      - npm run build
+#      - echo Building the Docker image...
+##      - docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest . #looks for docker file
+#      - docker build -f Dockerfile -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest . #looks for docker file
+#      - docker tag $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:$CODEBUILD_RESOLVED_SOURCE_VERSION
+#  post_build:
+#    commands:
+#      - echo Pushing the Docker image...
+#      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest
+#      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:$CODEBUILD_RESOLVED_SOURCE_VERSION
+#artifacts:
+#  base-directory: savannah-canopy-web/build
+#  files:
+#    - '**/*'
+#    - ../imagedefinitions-frontend.json #provide information to CodePipeline (or other deployment tools) about where to fetch the image from ECR
+
+
 version: 0.2
 
-#setting up environmental variables
 env:
   variables:
     AWS_ACCOUNT_ID: "539247457480"
@@ -35,13 +73,15 @@ phases:
     commands:
       - echo Logging in to Amazon ECR...
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - echo Logging in to Docker Hub...
+      - DOCKERHUB_TOKEN=$(aws secretsmanager get-secret-value --secret-id dockerhub-access-token --query SecretString --output text)
+      - docker login -u matopt -p "$DOCKERHUB_TOKEN"
   build:
     commands:
       - echo Building the React app...
       - npm run build
       - echo Building the Docker image...
-#      - docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest . #looks for docker file
-      - docker build -f Dockerfile -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest . #looks for docker file
+      - docker build -f Dockerfile -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest .
       - docker tag $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/plantstore-frontend-registry:$CODEBUILD_RESOLVED_SOURCE_VERSION
   post_build:
     commands:
@@ -52,4 +92,4 @@ artifacts:
   base-directory: savannah-canopy-web/build
   files:
     - '**/*'
-    - ../imagedefinitions-frontend.json #provide information to CodePipeline (or other deployment tools) about where to fetch the image from ECR
+    - ../imagedefinitions-frontend.json

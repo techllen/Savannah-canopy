@@ -49,3 +49,9 @@ variable "aws_region" {
   description = "The AWS region to deploy to"
   default     = "us-east-1"
 }
+
+variable "dockerhub_access_token" {
+  description = "Docker Hub Access Token"
+  type        = string
+  sensitive   = true
+}
