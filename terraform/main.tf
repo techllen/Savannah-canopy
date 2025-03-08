@@ -127,6 +127,11 @@ resource "aws_iam_role_policy" "codebuild_s3_policy" {
       "Effect": "Allow",
       "Action": "ecr:PutImage",
       "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ecr:BatchCheckLayerAvailability",
+      "Resource": "*"
     }
   ]
 }
