@@ -40,3 +40,7 @@ terraform/.terraform/providers/registry.terraform.io/hashicorp/aws/5.89.0/window
 terraform/.terraform/providers/**/terraform-provider-aws_*_x5.exe
 
 terraform/terraform.tfvars
+
+terraform/terraform.tfstate
+
+terraform/terraform.tfstate.backup

@@ -53,5 +53,4 @@ variable "aws_region" {
 variable "dockerhub_access_token" {
   description = "Docker Hub Access Token"
   type        = string
-  sensitive   = true
 }
