@@ -400,8 +400,8 @@ resource "aws_iam_policy" "codepipeline_ecs_deploy_policy" {
         Resource = ["*"]
       },
       {
-        Effect = "Allow",
-        Action = ["iam:PassRole"],
+        Effect   = "Allow",
+        Action   = ["iam:PassRole"],
         Resource = [aws_iam_role.ecs_tasks_execution_role.arn]
       }
     ]
@@ -415,7 +415,7 @@ resource "aws_iam_role_policy_attachment" "codepipeline_ecs_deploy_attachment" {
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
-# ECS Task Definitions
+# ECS Task Definitions and Adding CloudWatch Logging to ECS Task Definitions
 # ----------------------------------------------------------------------------------------------------------------------
 resource "aws_ecs_task_definition" "backend_task" {
   family                   = "backend-task"
@@ -436,7 +436,15 @@ resource "aws_ecs_task_definition" "backend_task" {
         "hostPort": 8080
       }
     ],
-    "essential": true
+    "essential": true,
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "/ecs/backend-app",
+        "awslogs-region": "${data.aws_region.current.name}",
+        "awslogs-stream-prefix": "ecs"
+      }
+    }
   }
 ]
 DEFINITION
@@ -461,7 +469,15 @@ resource "aws_ecs_task_definition" "frontend_task" {
         "hostPort": 3000
       }
     ],
-    "essential": true
+    "essential": true,
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "/ecs/frontend-app",
+        "awslogs-region": "${data.aws_region.current.name}",
+        "awslogs-stream-prefix": "ecs"
+      }
+    }
   }
 ]
 DEFINITION
@@ -655,4 +671,259 @@ resource "aws_codepipeline" "plantstore_pipeline" {
       }
     }
   }
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# CloudWatch Logs Subscription Filters and Lambda Functions (Terraform, Inline Code)
+# ---------------------------------------------------------------------------------------------------------------------
+
+# Lambda Function for Frontend Error Log Processing
+# resource "aws_lambda_function" "frontend_error_logs_processor_lambda" {
+#   function_name = "frontend-error-logs-processor-lambda" # Name of the Lambda function
+#   role          = aws_iam_role.lambda_execution_role.arn # IAM role for Lambda execution
+#   handler       = "lambda_function.lambda_handler"       # Handler function in the code
+#   runtime       = "python3.9"                            # Runtime environment for Lambda
+#   timeout       = 15                                     # Timeout for Lambda execution in seconds
+#
+#   # Inline Lambda code using zip and base64encode for deployment
+#   filename         = "frontend_lambda_function.zip"                            # Name of the zip file
+#   source_code_hash = data.archive_file.frontend_lambda_zip.output_base64sha256 # Hash of the source code for change detection
+#
+#   # Use the output of the archive_file data source directly
+#   s3_bucket = aws_s3_bucket.codepipeline_bucket.id #use any s3 bucket that you have access to.
+#   s3_key    = data.archive_file.frontend_lambda_zip.output_path
+# }
+#
+# # Lambda Function for Backend Error Log Processing
+# resource "aws_lambda_function" "backend_error_logs_processor_lambda" {
+#   function_name = "backend-error-logs-processor-lambda"  # Name of the Lambda function
+#   role          = aws_iam_role.lambda_execution_role.arn # IAM role for Lambda execution
+#   handler       = "lambda_function.lambda_handler"       # Handler function in the code
+#   runtime       = "python3.9"                            # Runtime environment for Lambda
+#   timeout       = 15                                     # Timeout for Lambda execution in seconds
+#
+#   # Inline Lambda code using zip and base64encode for deployment
+#   filename         = "backend_lambda_function.zip"                            # Name of the zip file
+#   source_code_hash = data.archive_file.backend_lambda_zip.output_base64sha256 # Hash of the source code for change detection
+#
+#   # Use the output of the archive_file data source directly
+#   s3_bucket = aws_s3_bucket.codepipeline_bucket.id #use any s3 bucket that you have access to.
+#   s3_key    = data.archive_file.backend_lambda_zip.output_path
+# }
+# Lambda Function for Frontend Error Log Processing
+# resource "aws_lambda_function" "frontend_error_logs_processor_lambda" {
+#   function_name    = "frontend-error-logs-processor-lambda"
+#   role             = aws_iam_role.lambda_execution_role.arn
+#   handler          = "lambda_function.lambda_handler"
+#   runtime          = "python3.9"
+#   timeout          = 15
+#   source_code_hash = data.archive_file.frontend_lambda_zip.output_base64sha256
+#   s3_bucket        = aws_s3_bucket.codepipeline_bucket.id
+#   s3_key           = data.archive_file.frontend_lambda_zip.output_path
+# }
+#
+# # Lambda Function for Backend Error Log Processing
+# resource "aws_lambda_function" "backend_error_logs_processor_lambda" {
+#   function_name    = "backend-error-logs-processor-lambda"
+#   role             = aws_iam_role.lambda_execution_role.arn
+#   handler          = "lambda_function.lambda_handler"
+#   runtime          = "python3.9"
+#   timeout          = 15
+#   source_code_hash = data.archive_file.backend_lambda_zip.output_base64sha256
+#   s3_bucket        = aws_s3_bucket.codepipeline_bucket.id
+#   s3_key           = data.archive_file.backend_lambda_zip.output_path
+# }
+
+# Lambda Function for Frontend Error Log Processing
+resource "aws_lambda_function" "frontend_error_logs_processor_lambda" {
+  function_name    = "frontend-error-logs-processor-lambda"
+  role             = aws_iam_role.lambda_execution_role.arn
+  handler          = "lambda_function.lambda_handler"
+  runtime          = "python3.9"
+  timeout          = 15
+  source_code_hash = data.archive_file.frontend_lambda_zip.output_base64sha256
+  s3_bucket        = aws_s3_bucket.codepipeline_bucket.id
+  s3_key           = data.archive_file.frontend_lambda_zip.output_path
+  depends_on       = [aws_s3_object.frontend_lambda_zip_upload]
+}
+
+# Lambda Function for Backend Error Log Processing
+resource "aws_lambda_function" "backend_error_logs_processor_lambda" {
+  function_name    = "backend-error-logs-processor-lambda"
+  role             = aws_iam_role.lambda_execution_role.arn
+  handler          = "lambda_function.lambda_handler"
+  runtime          = "python3.9"
+  timeout          = 15
+  source_code_hash = data.archive_file.backend_lambda_zip.output_base64sha256
+  s3_bucket        = aws_s3_bucket.codepipeline_bucket.id
+  s3_key           = data.archive_file.backend_lambda_zip.output_path
+  depends_on       = [aws_s3_object.backend_lambda_zip_upload]
+}
+
+# Lambda Execution Role
+resource "aws_iam_role" "lambda_execution_role" {
+  name = "lambda-execution-role" # Name of the IAM role
+
+  # IAM policy to allow Lambda to assume this role
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action = "sts:AssumeRole",
+      Effect = "Allow",
+      Principal = {
+        Service = "lambda.amazonaws.com" # Allow Lambda service to assume this role
+      }
+    }]
+  })
+}
+
+# Lambda Execution Policy
+resource "aws_iam_policy_attachment" "lambda_execution_policy" {
+  name       = "lambda-execution-policy"
+  roles      = [aws_iam_role.lambda_execution_role.name]                          # Note: roles is a list ,attach policy to the Lambda execution role
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole" # AWS managed policy for basic Lambda execution
+}
+
+# # CloudWatch Logs Subscription Filter for Frontend
+# resource "aws_cloudwatch_log_subscription_filter" "frontend_log_subscription_filter" {
+#   name            = "frontend-log-subscription-filter"                           # Name of the subscription filter
+#   log_group_name  = "/ecs/frontend-app"                                          # CloudWatch Logs group to filter
+#   filter_pattern  = "ERROR"                                                      # Filter pattern (empty for all logs)
+#   destination_arn = aws_lambda_function.frontend_error_logs_processor_lambda.arn # Lambda function to send filtered logs to
+# }
+#
+# # CloudWatch Logs Subscription Filter for Backend
+# resource "aws_cloudwatch_log_subscription_filter" "backend_log_subscription_filter" {
+#   name            = "backend-log-subscription-filter"                           # Name of the subscription filter
+#   log_group_name  = "/ecs/backend-app"                                          # CloudWatch Logs group to filter
+#   filter_pattern  = "ERROR"                                                     # Filter pattern (empty for all logs)
+#   destination_arn = aws_lambda_function.backend_error_logs_processor_lambda.arn # Lambda function to send filtered logs to
+# }
+
+# ... (your existing code) ...
+
+#create the corresponding CloudWatch Log Groups
+resource "aws_cloudwatch_log_group" "frontend_log_group" {
+  name              = "/ecs/frontend-app"
+  retention_in_days = 3
+}
+
+resource "aws_cloudwatch_log_group" "backend_log_group" {
+  name              = "/ecs/backend-app"
+  retention_in_days = 3
+}
+
+
+# CloudWatch Logs Subscription Filter for Frontend
+# resource "aws_cloudwatch_log_subscription_filter" "frontend_log_subscription_filter" {
+#   name            = "frontend-log-subscription-filter"                           # Name of the subscription filter
+#   log_group_name  = "/ecs/frontend-app"                                          # CloudWatch Log group to monitor (frontend logs)
+#   filter_pattern  = "ERROR"                                                      # Filter pattern to capture ERROR logs
+#   destination_arn = aws_lambda_function.frontend_error_logs_processor_lambda.arn # Lambda function to send filtered logs to
+#   depends_on      = [aws_ecs_service.frontend_service]                           # Ensure the ECS service is running before creating the filter
+# }
+#
+# # CloudWatch Logs Subscription Filter for Backend
+# resource "aws_cloudwatch_log_subscription_filter" "backend_log_subscription_filter" {
+#   name            = "backend-log-subscription-filter"                           # Name of the subscription filter
+#   log_group_name  = "/ecs/backend-app"                                          # CloudWatch Log group to monitor (backend logs)
+#   filter_pattern  = "ERROR"                                                     # Filter pattern to capture ERROR logs
+#   destination_arn = aws_lambda_function.backend_error_logs_processor_lambda.arn # Lambda function to send filtered logs to
+#   depends_on      = [aws_ecs_service.backend_service]                           # Ensure the ECS service is running before creating the filter
+
+resource "aws_cloudwatch_log_subscription_filter" "frontend_log_subscription_filter" {
+  name            = "frontend-log-subscription-filter"
+  log_group_name  = aws_cloudwatch_log_group.frontend_log_group.name
+  filter_pattern  = "ERROR"
+  destination_arn = aws_lambda_function.frontend_error_logs_processor_lambda.arn
+  depends_on      = [aws_ecs_service.frontend_service]
+}
+
+resource "aws_cloudwatch_log_subscription_filter" "backend_log_subscription_filter" {
+  name            = "backend-log-subscription-filter"
+  log_group_name  = aws_cloudwatch_log_group.backend_log_group.name
+  filter_pattern  = "ERROR"
+  destination_arn = aws_lambda_function.backend_error_logs_processor_lambda.arn
+  depends_on      = [aws_ecs_service.backend_service]
+}
+
+
+# ... (rest of your code) ...
+
+# Lambda Permission for CloudWatch Logs (Frontend)
+resource "aws_lambda_permission" "allow_cloudwatch_logs_frontend" {
+  statement_id  = "AllowExecutionFromCloudWatchLogsFrontend"                                                                                  # Unique ID for the permission statement
+  action        = "lambda:InvokeFunction"                                                                                                     # Action to allow (invoke Lambda)
+  function_name = aws_lambda_function.frontend_error_logs_processor_lambda.function_name                                                      # Lambda function name
+  principal     = "logs.${data.aws_region.current.name}.amazonaws.com"                                                                        # Principal that can invoke the Lambda
+  source_arn    = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/frontend-app:*" # Source ARN for CloudWatch Logs
+}
+
+# Lambda Permission for CloudWatch Logs (Backend)
+resource "aws_lambda_permission" "allow_cloudwatch_logs_backend" {
+  statement_id  = "AllowExecutionFromCloudWatchLogsBackend"                                                                                  # Unique ID for the permission statement
+  action        = "lambda:InvokeFunction"                                                                                                    # Action to allow (invoke Lambda)
+  function_name = aws_lambda_function.backend_error_logs_processor_lambda.function_name                                                      # Lambda function name
+  principal     = "logs.${data.aws_region.current.name}.amazonaws.com"                                                                       # Principal that can invoke the Lambda
+  source_arn    = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/backend-app:*" # Source ARN for CloudWatch Logs
+}
+
+# Create zip file for frontend lambda function
+data "archive_file" "frontend_lambda_zip" {
+  type                    = "zip"
+  source_content          = <<EOF
+import json
+
+def lambda_handler(event, context):
+    log_events = event['awslogs']['data']
+    decoded_logs = json.loads(log_events)
+    for log_event in decoded_logs['logEvents']:
+        message = log_event['message']
+        if "ERROR" in message:
+            print(message)
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Logs processed!')
+    }
+EOF
+  output_path             = "frontend_lambda_function.zip"
+  source_content_filename = "lambda_function.py"
+}
+
+# Upload frontend zip to S3
+resource "aws_s3_object" "frontend_lambda_zip_upload" {
+  bucket = aws_s3_bucket.codepipeline_bucket.id
+  key    = data.archive_file.frontend_lambda_zip.output_path
+  source = data.archive_file.frontend_lambda_zip.output_path
+  etag   = filemd5(data.archive_file.frontend_lambda_zip.output_path)
+}
+
+# Create zip file for backend lambda function
+data "archive_file" "backend_lambda_zip" {
+  type                    = "zip"
+  source_content          = <<EOF
+import json
+
+def lambda_handler(event, context):
+    log_events = event['awslogs']['data']
+    decoded_logs = json.loads(log_events)
+    for log_event in decoded_logs['logEvents']:
+        message = log_event['message']
+        if "ERROR" in message:
+            print(message)
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Logs processed!')
+    }
+EOF
+  output_path             = "backend_lambda_function.zip"
+  source_content_filename = "lambda_function.py"
+}
+
+# Upload backend zip to S3
+resource "aws_s3_object" "backend_lambda_zip_upload" {
+  bucket = aws_s3_bucket.codepipeline_bucket.id
+  key    = data.archive_file.backend_lambda_zip.output_path
+  source = data.archive_file.backend_lambda_zip.output_path
+  etag   = filemd5(data.archive_file.backend_lambda_zip.output_path)
 }
