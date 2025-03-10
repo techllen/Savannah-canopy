@@ -272,6 +272,33 @@ resource "aws_route53_zone" "savannah_canopy_zone" {
   name = "savannah-canopy.com" # domain name
 }
 
+# Configure Route 53 A Records to Point to the ALB
+# Route 53 Record for ALB (savannah-canopy.com)
+# resource "aws_route53_record" "savannah_canopy_record" {
+#   zone_id = aws_route53_zone.savannah_canopy_zone.zone_id
+#   name    = "savannah-canopy.com" # domain name
+#   type    = "A"
+#
+#   alias {
+#     name                   = aws_lb.application_load_balancer.dns_name
+#     zone_id                = aws_lb.application_load_balancer.zone_id
+#     evaluate_target_health = true
+#   }
+# }
+
+# Route 53 Record for ALB (www.savannah-canopy.com)
+resource "aws_route53_record" "www_savannah_canopy_record" {
+  zone_id = aws_route53_zone.savannah_canopy_zone.zone_id
+  name    = "www.savannah-canopy.com" # www subdomain
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.application_load_balancer.dns_name
+    zone_id                = aws_lb.application_load_balancer.zone_id
+    evaluate_target_health = true
+  }
+}
+
 # Request an SSL certificate for your domain
 resource "aws_acm_certificate" "savannah_canopy_cert" {
   domain_name               = "www.savannah-canopy.com" # Fully qualified domain name
@@ -289,7 +316,7 @@ resource "aws_lb" "application_load_balancer" {
   internal                   = false
   load_balancer_type         = "application"
   security_groups            = [aws_security_group.alb_sg.id]
-  subnets                    = ["subnet-004c597f51f5a111f", "subnet-015f9ef9f50348937"] # Replace with your subnets.
+  subnets                    = ["subnet-004c597f51f5a111f", "subnet-015f9ef9f50348937"] # Replace with your subnets.Must be public
   enable_deletion_protection = false
 }
 
@@ -306,6 +333,15 @@ resource "aws_security_group" "alb_sg" {
     cidr_blocks = ["0.0.0.0/0"]
     description = "HTTP traffic"
   }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS traffic"
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -323,7 +359,7 @@ resource "aws_lb_target_group" "backend_target_group" {
   target_type = "ip"
 
   health_check {
-    path     = "/api/payment/health"
+    path     = "/api/payment/health" #  backend healthcheck path
     protocol = "HTTP"
     port     = 8080
   }
@@ -360,20 +396,6 @@ resource "aws_lb_listener" "http_listener" {
     }
   }
 }
-
-# Attach ECS Backend Service to Target Group
-# resource "aws_lb_target_group_attachment" "backend_target_attachment" {
-#   target_group_arn = aws_lb_target_group.backend_target_group.arn
-#   target_id        = aws_ecs_service.backend_service.network_configuration[0].assign_public_ip ? tolist(aws_ecs_service.backend_service.network_configuration[0].subnets)[0] : tolist(aws_ecs_service.backend_service.network_configuration[0].subnets)[1]
-#   port             = 8080
-# }
-#
-# # Attach ECS Frontend Service to Target Group
-# resource "aws_lb_target_group_attachment" "frontend_target_attachment" {
-#   target_group_arn = aws_lb_target_group.frontend_target_group.arn
-#   target_id        = aws_ecs_service.frontend_service.network_configuration[0].assign_public_ip ? tolist(aws_ecs_service.frontend_service.network_configuration[0].subnets)[0] : tolist(aws_ecs_service.frontend_service.network_configuration[0].subnets)[1]
-#   port             = 3000
-# }
 
 # ---------------------------------------------------------------------------------------------------------------------
 # CodeBuild Projects
@@ -549,6 +571,15 @@ resource "aws_ecs_task_definition" "backend_task" {
         "awslogs-region": "${data.aws_region.current.name}",
         "awslogs-stream-prefix": "ecs"
       }
+    },
+    "startCount": 1,
+    "failureThreshold": 3,
+    "healthCheck": {
+      "command": ["CMD-SHELL", "curl -f http://localhost:8080/api/payment/health || exit 1"],
+      "interval": 30,
+      "timeout": 5,
+      "retries": 3,
+      "startPeriod": 60
     }
   }
 ]
@@ -582,6 +613,15 @@ resource "aws_ecs_task_definition" "frontend_task" {
         "awslogs-region": "${data.aws_region.current.name}",
         "awslogs-stream-prefix": "ecs"
       }
+    },
+    "startCount": 1,
+    "failureThreshold": 3,
+    "healthCheck": {
+      "command": ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"],
+      "interval": 30,
+      "timeout": 5,
+      "retries": 3,
+      "startPeriod": 60
     }
   }
 ]
@@ -652,11 +692,11 @@ resource "aws_ecs_service" "backend_service" {
     assign_public_ip = true
   }
 
-  # load_balancer {
-  #   target_group_arn = aws_lb_target_group.backend_target_group.arn
-  #   container_name   = "backend"
-  #   container_port   = 8080
-  # }
+  load_balancer {
+    target_group_arn = aws_lb_target_group.backend_target_group.arn
+    container_name   = "backend"
+    container_port   = 8080
+  }
 
   depends_on = [
     aws_lb_target_group.backend_target_group,
@@ -692,11 +732,11 @@ resource "aws_ecs_service" "frontend_service" {
     assign_public_ip = true
   }
 
-  # load_balancer {
-  #   target_group_arn = aws_lb_target_group.frontend_target_group.arn
-  #   container_name   = "frontend"
-  #   container_port   = 3000
-  # }
+  load_balancer {
+    target_group_arn = aws_lb_target_group.frontend_target_group.arn
+    container_name   = "frontend"
+    container_port   = 3000
+  }
 
   depends_on = [
     aws_lb_target_group.frontend_target_group,
