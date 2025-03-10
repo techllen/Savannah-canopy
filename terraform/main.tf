@@ -243,12 +243,6 @@ resource "aws_secretsmanager_secret_version" "dockerhub_access_token_version" {
   secret_string = var.dockerhub_access_token
 }
 
-# Grant CodeBuild Access to the Secret
-# resource "aws_iam_role_policy_attachment" "codebuild_secrets_access" {
-#   policy_arn = "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
-#   role       = aws_iam_role.codebuild_role.name
-# }
-
 resource "aws_iam_policy" "codebuild_secrets_policy" {
   name        = "codebuild-secrets-policy"
   description = "Policy to allow CodeBuild to access Docker Hub access token"
@@ -268,6 +262,163 @@ resource "aws_iam_policy" "codebuild_secrets_policy" {
 resource "aws_iam_role_policy_attachment" "codebuild_secrets_access" {
   policy_arn = aws_iam_policy.codebuild_secrets_policy.arn
   role       = aws_iam_role.codebuild_role.name
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Route 53 and ALB
+# ---------------------------------------------------------------------------------------------------------------------
+# Route 53 Hosted Zone for your domain
+resource "aws_route53_zone" "savannah_canopy_zone" {
+  name = "savannah-canopy.com" # domain name
+}
+
+# Request an SSL certificate for your domain
+resource "aws_acm_certificate" "savannah_canopy_cert" {
+  domain_name       = "savannah-canopy.com"
+  validation_method = "DNS"
+  subject_alternative_names = ["www.savannah-canopy.com"]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Route 53 Record for ACM Certificate Validation
+resource "aws_route53_record" "savannah_canopy_cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.savannah_canopy_cert.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = aws_route53_zone.savannah_canopy_zone.zone_id
+}
+
+# ACM Certificate Validation
+resource "aws_acm_certificate_validation" "savannah_canopy_cert_validation" {
+  certificate_arn         = aws_acm_certificate.savannah_canopy_cert.arn
+  validation_record_fqdns = [for record in aws_route53_record.savannah_canopy_cert_validation : record.fqdn]
+
+  depends_on = [aws_route53_record.savannah_canopy_cert_validation]
+}
+
+# Application Load Balancer (ALB)
+resource "aws_lb" "application_load_balancer" {
+  name               = "plantstore-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb_sg.id]
+  subnets            = ["subnet-004c597f51f5a111f", "subnet-015f9ef9f50348937"] # Replace with your subnets.
+  enable_deletion_protection = false
+}
+
+# ALB Security Group
+resource "aws_security_group" "alb_sg" {
+  name        = "alb-sg"
+  description = "Security group for ALB"
+  vpc_id      = "vpc-085257437561e6789" # Replace with your VPC ID
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS traffic"
+  }
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTP traffic"
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# ALB Target Group for Backend
+resource "aws_lb_target_group" "backend_target_group" {
+  name        = "backend-tg"
+  port        = 8080
+  protocol    = "HTTP"
+  vpc_id      = "vpc-085257437561e6789" # VPC ID
+  target_type = "ip"
+
+  health_check {
+    path     = "/api/payment/health"
+    protocol = "HTTP"
+    port     = 8080
+  }
+}
+
+# ALB Target Group for Frontend
+resource "aws_lb_target_group" "frontend_target_group" {
+  name        = "frontend-tg"
+  port        = 3000
+  protocol    = "HTTP"
+  vpc_id      = "vpc-085257437561e6789" #Replace with your VPC ID
+  target_type = "ip"
+
+  health_check {
+    path     = "/"  #  frontend healthcheck path
+    protocol = "HTTP"
+    port     = 3000
+  }
+}
+
+# ALB Listener for HTTPS
+resource "aws_lb_listener" "https_listener" {
+  load_balancer_arn = aws_lb.application_load_balancer.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = aws_acm_certificate.savannah_canopy_cert.arn  # certificate ARN
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.frontend_target_group.arn
+  }
+}
+
+# ALB Listener for HTTP (Redirect to HTTPS)
+resource "aws_lb_listener" "http_listener" {
+  load_balancer_arn = aws_lb.application_load_balancer.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+# Attach ECS Backend Service to Target Group
+resource "aws_lb_target_group_attachment" "backend_target_attachment" {
+  target_group_arn = aws_lb_target_group.backend_target_group.arn
+  target_id        = aws_ecs_service.backend_service.network_configuration[0].assign_public_ip ? aws_ecs_service.backend_service.network_configuration[0].subnets[0] : aws_ecs_service.backend_service.network_configuration[0].subnets[1]
+  port             = 8080
+}
+
+# Attach ECS Frontend Service to Target Group
+resource "aws_lb_target_group_attachment" "frontend_target_attachment" {
+  target_group_arn = aws_lb_target_group.frontend_target_group.arn
+  target_id        = aws_ecs_service.frontend_service.network_configuration[0].assign_public_ip ? aws_ecs_service.frontend_service.network_configuration[0].subnets[0] : aws_ecs_service.frontend_service.network_configuration[0].subnets[1]
+  port             = 3000
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -678,63 +829,6 @@ resource "aws_codepipeline" "plantstore_pipeline" {
 # ---------------------------------------------------------------------------------------------------------------------
 
 # Lambda Function for Frontend Error Log Processing
-# resource "aws_lambda_function" "frontend_error_logs_processor_lambda" {
-#   function_name = "frontend-error-logs-processor-lambda" # Name of the Lambda function
-#   role          = aws_iam_role.lambda_execution_role.arn # IAM role for Lambda execution
-#   handler       = "lambda_function.lambda_handler"       # Handler function in the code
-#   runtime       = "python3.9"                            # Runtime environment for Lambda
-#   timeout       = 15                                     # Timeout for Lambda execution in seconds
-#
-#   # Inline Lambda code using zip and base64encode for deployment
-#   filename         = "frontend_lambda_function.zip"                            # Name of the zip file
-#   source_code_hash = data.archive_file.frontend_lambda_zip.output_base64sha256 # Hash of the source code for change detection
-#
-#   # Use the output of the archive_file data source directly
-#   s3_bucket = aws_s3_bucket.codepipeline_bucket.id #use any s3 bucket that you have access to.
-#   s3_key    = data.archive_file.frontend_lambda_zip.output_path
-# }
-#
-# # Lambda Function for Backend Error Log Processing
-# resource "aws_lambda_function" "backend_error_logs_processor_lambda" {
-#   function_name = "backend-error-logs-processor-lambda"  # Name of the Lambda function
-#   role          = aws_iam_role.lambda_execution_role.arn # IAM role for Lambda execution
-#   handler       = "lambda_function.lambda_handler"       # Handler function in the code
-#   runtime       = "python3.9"                            # Runtime environment for Lambda
-#   timeout       = 15                                     # Timeout for Lambda execution in seconds
-#
-#   # Inline Lambda code using zip and base64encode for deployment
-#   filename         = "backend_lambda_function.zip"                            # Name of the zip file
-#   source_code_hash = data.archive_file.backend_lambda_zip.output_base64sha256 # Hash of the source code for change detection
-#
-#   # Use the output of the archive_file data source directly
-#   s3_bucket = aws_s3_bucket.codepipeline_bucket.id #use any s3 bucket that you have access to.
-#   s3_key    = data.archive_file.backend_lambda_zip.output_path
-# }
-# Lambda Function for Frontend Error Log Processing
-# resource "aws_lambda_function" "frontend_error_logs_processor_lambda" {
-#   function_name    = "frontend-error-logs-processor-lambda"
-#   role             = aws_iam_role.lambda_execution_role.arn
-#   handler          = "lambda_function.lambda_handler"
-#   runtime          = "python3.9"
-#   timeout          = 15
-#   source_code_hash = data.archive_file.frontend_lambda_zip.output_base64sha256
-#   s3_bucket        = aws_s3_bucket.codepipeline_bucket.id
-#   s3_key           = data.archive_file.frontend_lambda_zip.output_path
-# }
-#
-# # Lambda Function for Backend Error Log Processing
-# resource "aws_lambda_function" "backend_error_logs_processor_lambda" {
-#   function_name    = "backend-error-logs-processor-lambda"
-#   role             = aws_iam_role.lambda_execution_role.arn
-#   handler          = "lambda_function.lambda_handler"
-#   runtime          = "python3.9"
-#   timeout          = 15
-#   source_code_hash = data.archive_file.backend_lambda_zip.output_base64sha256
-#   s3_bucket        = aws_s3_bucket.codepipeline_bucket.id
-#   s3_key           = data.archive_file.backend_lambda_zip.output_path
-# }
-
-# Lambda Function for Frontend Error Log Processing
 resource "aws_lambda_function" "frontend_error_logs_processor_lambda" {
   function_name    = "frontend-error-logs-processor-lambda"
   role             = aws_iam_role.lambda_execution_role.arn
@@ -784,24 +878,6 @@ resource "aws_iam_policy_attachment" "lambda_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole" # AWS managed policy for basic Lambda execution
 }
 
-# # CloudWatch Logs Subscription Filter for Frontend
-# resource "aws_cloudwatch_log_subscription_filter" "frontend_log_subscription_filter" {
-#   name            = "frontend-log-subscription-filter"                           # Name of the subscription filter
-#   log_group_name  = "/ecs/frontend-app"                                          # CloudWatch Logs group to filter
-#   filter_pattern  = "ERROR"                                                      # Filter pattern (empty for all logs)
-#   destination_arn = aws_lambda_function.frontend_error_logs_processor_lambda.arn # Lambda function to send filtered logs to
-# }
-#
-# # CloudWatch Logs Subscription Filter for Backend
-# resource "aws_cloudwatch_log_subscription_filter" "backend_log_subscription_filter" {
-#   name            = "backend-log-subscription-filter"                           # Name of the subscription filter
-#   log_group_name  = "/ecs/backend-app"                                          # CloudWatch Logs group to filter
-#   filter_pattern  = "ERROR"                                                     # Filter pattern (empty for all logs)
-#   destination_arn = aws_lambda_function.backend_error_logs_processor_lambda.arn # Lambda function to send filtered logs to
-# }
-
-# ... (your existing code) ...
-
 #create the corresponding CloudWatch Log Groups
 resource "aws_cloudwatch_log_group" "frontend_log_group" {
   name              = "/ecs/frontend-app"
@@ -813,37 +889,19 @@ resource "aws_cloudwatch_log_group" "backend_log_group" {
   retention_in_days = 3
 }
 
-
-# CloudWatch Logs Subscription Filter for Frontend
-# resource "aws_cloudwatch_log_subscription_filter" "frontend_log_subscription_filter" {
-#   name            = "frontend-log-subscription-filter"                           # Name of the subscription filter
-#   log_group_name  = "/ecs/frontend-app"                                          # CloudWatch Log group to monitor (frontend logs)
-#   filter_pattern  = "ERROR"                                                      # Filter pattern to capture ERROR logs
-#   destination_arn = aws_lambda_function.frontend_error_logs_processor_lambda.arn # Lambda function to send filtered logs to
-#   depends_on      = [aws_ecs_service.frontend_service]                           # Ensure the ECS service is running before creating the filter
-# }
-#
-# # CloudWatch Logs Subscription Filter for Backend
-# resource "aws_cloudwatch_log_subscription_filter" "backend_log_subscription_filter" {
-#   name            = "backend-log-subscription-filter"                           # Name of the subscription filter
-#   log_group_name  = "/ecs/backend-app"                                          # CloudWatch Log group to monitor (backend logs)
-#   filter_pattern  = "ERROR"                                                     # Filter pattern to capture ERROR logs
-#   destination_arn = aws_lambda_function.backend_error_logs_processor_lambda.arn # Lambda function to send filtered logs to
-#   depends_on      = [aws_ecs_service.backend_service]                           # Ensure the ECS service is running before creating the filter
-
 resource "aws_cloudwatch_log_subscription_filter" "frontend_log_subscription_filter" {
-  name            = "frontend-log-subscription-filter"
-  log_group_name  = aws_cloudwatch_log_group.frontend_log_group.name
-  filter_pattern  = "ERROR"
-  destination_arn = aws_lambda_function.frontend_error_logs_processor_lambda.arn
+  name            = "frontend-log-subscription-filter" # Name of the subscription filter
+  log_group_name  = aws_cloudwatch_log_group.frontend_log_group.name # CloudWatch Log group to monitor (frontend logs)
+  filter_pattern  = "ERROR" # Filter pattern to capture ERROR logs
+  destination_arn = aws_lambda_function.frontend_error_logs_processor_lambda.arn # Ensure the ECS service is running before creating the filter
   depends_on      = [aws_ecs_service.frontend_service]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "backend_log_subscription_filter" {
-  name            = "backend-log-subscription-filter"
-  log_group_name  = aws_cloudwatch_log_group.backend_log_group.name
-  filter_pattern  = "ERROR"
-  destination_arn = aws_lambda_function.backend_error_logs_processor_lambda.arn
+  name            = "backend-log-subscription-filter" # Name of the subscription filter
+  log_group_name  = aws_cloudwatch_log_group.backend_log_group.name # CloudWatch Log group to monitor (backend logs)
+  filter_pattern  = "ERROR" # Filter pattern to capture ERROR logs
+  destination_arn = aws_lambda_function.backend_error_logs_processor_lambda.arn # Ensure the ECS service is running before creating the filter
   depends_on      = [aws_ecs_service.backend_service]
 }
 
