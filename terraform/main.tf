@@ -926,6 +926,32 @@ resource "aws_iam_policy_attachment" "lambda_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole" # AWS managed policy for basic Lambda execution
 }
 
+# Add Bedrock invoke policy to the lambda role.
+resource "aws_iam_policy" "lambda_bedrock_policy" {
+  name        = "lambda-bedrock-policy"
+  description = "Policy to allow Lambda to invoke Bedrock models"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "bedrock:InvokeModel",
+          "bedrock-runtime:InvokeModel"
+        ],
+        Resource = "arn:aws:bedrock-runtime:us-east-1::model/mistral.mistral-7b-instruct-v1" # model to use
+      }
+    ]
+  })
+}
+
+# attaching lambda execution policy to the role
+resource "aws_iam_role_policy_attachment" "lambda_bedrock_policy_attachment" {
+  policy_arn = aws_iam_policy.lambda_bedrock_policy.arn
+  role       = aws_iam_role.lambda_execution_role.name
+}
+
 #create the corresponding CloudWatch Log Groups
 resource "aws_cloudwatch_log_group" "frontend_log_group" {
   name              = "/ecs/frontend-app"
@@ -953,7 +979,6 @@ resource "aws_cloudwatch_log_subscription_filter" "backend_log_subscription_filt
   depends_on      = [aws_ecs_service.backend_service]
 }
 
-
 # ... (rest of your code) ...
 
 # Lambda Permission for CloudWatch Logs (Frontend)
@@ -979,6 +1004,10 @@ data "archive_file" "frontend_lambda_zip" {
   type                    = "zip"
   source_content          = <<EOF
 import json
+import boto3
+
+bedrock_runtime = boto3.client(service_name='bedrock-runtime')
+model_id = 'mistral.mistral-7b-instruct-v1'
 
 def lambda_handler(event, context):
     log_events = event['awslogs']['data']
@@ -986,7 +1015,23 @@ def lambda_handler(event, context):
     for log_event in decoded_logs['logEvents']:
         message = log_event['message']
         if "ERROR" in message:
-            print(message)
+            print(f"Error message: {message}")
+            try:
+                prompt = f"Explain the following error message and suggest possible solutions: {message}"
+                body = json.dumps({
+                    "prompt": prompt,
+                    "max_tokens": 500,
+                    "temperature": 0.5,
+                })
+
+                response = bedrock_runtime.invoke_model(body=body, modelId=model_id, contentType='application/json')
+                response_body = json.loads(response.get('body').read())
+                completion = response_body['generation']
+                print(f"Bedrock response: {completion}")
+
+            except Exception as e:
+                print(f"Error invoking Bedrock: {e}")
+
     return {
         'statusCode': 200,
         'body': json.dumps('Logs processed!')
@@ -1009,6 +1054,10 @@ data "archive_file" "backend_lambda_zip" {
   type                    = "zip"
   source_content          = <<EOF
 import json
+import boto3
+
+bedrock_runtime = boto3.client(service_name='bedrock-runtime')
+model_id = 'mistral.mistral-7b-instruct-v1'
 
 def lambda_handler(event, context):
     log_events = event['awslogs']['data']
@@ -1016,7 +1065,23 @@ def lambda_handler(event, context):
     for log_event in decoded_logs['logEvents']:
         message = log_event['message']
         if "ERROR" in message:
-            print(message)
+            print(f"Error message: {message}")
+            try:
+                prompt = f"Explain the following error message and suggest possible solutions: {message}"
+                body = json.dumps({
+                    "prompt": prompt,
+                    "max_tokens": 500,
+                    "temperature": 0.5,
+                })
+
+                response = bedrock_runtime.invoke_model(body=body, modelId=model_id, contentType='application/json')
+                response_body = json.loads(response.get('body').read())
+                completion = response_body['generation']
+                print(f"Bedrock response: {completion}")
+
+            except Exception as e:
+                print(f"Error invoking Bedrock: {e}")
+
     return {
         'statusCode': 200,
         'body': json.dumps('Logs processed!')
