@@ -274,48 +274,22 @@ resource "aws_route53_zone" "savannah_canopy_zone" {
 
 # Request an SSL certificate for your domain
 resource "aws_acm_certificate" "savannah_canopy_cert" {
-  domain_name       = "savannah-canopy.com"
-  validation_method = "DNS"
-  subject_alternative_names = ["www.savannah-canopy.com"]
+  domain_name               = "www.savannah-canopy.com" # Fully qualified domain name
+  validation_method         = "DNS"
+  subject_alternative_names = ["savannah-canopy.com"]
 
   lifecycle {
     create_before_destroy = true
   }
 }
 
-# Route 53 Record for ACM Certificate Validation
-resource "aws_route53_record" "savannah_canopy_cert_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.savannah_canopy_cert.domain_validation_options : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      record = dvo.resource_record_value
-      type   = dvo.resource_record_type
-    }
-  }
-
-  allow_overwrite = true
-  name            = each.value.name
-  records         = [each.value.record]
-  ttl             = 60
-  type            = each.value.type
-  zone_id         = aws_route53_zone.savannah_canopy_zone.zone_id
-}
-
-# ACM Certificate Validation
-resource "aws_acm_certificate_validation" "savannah_canopy_cert_validation" {
-  certificate_arn         = aws_acm_certificate.savannah_canopy_cert.arn
-  validation_record_fqdns = [for record in aws_route53_record.savannah_canopy_cert_validation : record.fqdn]
-
-  depends_on = [aws_route53_record.savannah_canopy_cert_validation]
-}
-
 # Application Load Balancer (ALB)
 resource "aws_lb" "application_load_balancer" {
-  name               = "plantstore-alb"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = ["subnet-004c597f51f5a111f", "subnet-015f9ef9f50348937"] # Replace with your subnets.
+  name                       = "plantstore-alb"
+  internal                   = false
+  load_balancer_type         = "application"
+  security_groups            = [aws_security_group.alb_sg.id]
+  subnets                    = ["subnet-004c597f51f5a111f", "subnet-015f9ef9f50348937"] # Replace with your subnets.
   enable_deletion_protection = false
 }
 
@@ -323,15 +297,8 @@ resource "aws_lb" "application_load_balancer" {
 resource "aws_security_group" "alb_sg" {
   name        = "alb-sg"
   description = "Security group for ALB"
-  vpc_id      = "vpc-085257437561e6789" # Replace with your VPC ID
+  vpc_id      = "vpc-085257437561e6789" # VPC ID
 
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "HTTPS traffic"
-  }
   ingress {
     from_port   = 80
     to_port     = 80
@@ -371,23 +338,9 @@ resource "aws_lb_target_group" "frontend_target_group" {
   target_type = "ip"
 
   health_check {
-    path     = "/"  #  frontend healthcheck path
+    path     = "/" #  frontend healthcheck path
     protocol = "HTTP"
     port     = 3000
-  }
-}
-
-# ALB Listener for HTTPS
-resource "aws_lb_listener" "https_listener" {
-  load_balancer_arn = aws_lb.application_load_balancer.arn
-  port              = "443"
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = aws_acm_certificate.savannah_canopy_cert.arn  # certificate ARN
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.frontend_target_group.arn
   }
 }
 
@@ -399,6 +352,7 @@ resource "aws_lb_listener" "http_listener" {
 
   default_action {
     type = "redirect"
+
     redirect {
       port        = "443"
       protocol    = "HTTPS"
@@ -408,18 +362,18 @@ resource "aws_lb_listener" "http_listener" {
 }
 
 # Attach ECS Backend Service to Target Group
-resource "aws_lb_target_group_attachment" "backend_target_attachment" {
-  target_group_arn = aws_lb_target_group.backend_target_group.arn
-  target_id        = aws_ecs_service.backend_service.network_configuration[0].assign_public_ip ? aws_ecs_service.backend_service.network_configuration[0].subnets[0] : aws_ecs_service.backend_service.network_configuration[0].subnets[1]
-  port             = 8080
-}
-
-# Attach ECS Frontend Service to Target Group
-resource "aws_lb_target_group_attachment" "frontend_target_attachment" {
-  target_group_arn = aws_lb_target_group.frontend_target_group.arn
-  target_id        = aws_ecs_service.frontend_service.network_configuration[0].assign_public_ip ? aws_ecs_service.frontend_service.network_configuration[0].subnets[0] : aws_ecs_service.frontend_service.network_configuration[0].subnets[1]
-  port             = 3000
-}
+# resource "aws_lb_target_group_attachment" "backend_target_attachment" {
+#   target_group_arn = aws_lb_target_group.backend_target_group.arn
+#   target_id        = aws_ecs_service.backend_service.network_configuration[0].assign_public_ip ? tolist(aws_ecs_service.backend_service.network_configuration[0].subnets)[0] : tolist(aws_ecs_service.backend_service.network_configuration[0].subnets)[1]
+#   port             = 8080
+# }
+#
+# # Attach ECS Frontend Service to Target Group
+# resource "aws_lb_target_group_attachment" "frontend_target_attachment" {
+#   target_group_arn = aws_lb_target_group.frontend_target_group.arn
+#   target_id        = aws_ecs_service.frontend_service.network_configuration[0].assign_public_ip ? tolist(aws_ecs_service.frontend_service.network_configuration[0].subnets)[0] : tolist(aws_ecs_service.frontend_service.network_configuration[0].subnets)[1]
+#   port             = 3000
+# }
 
 # ---------------------------------------------------------------------------------------------------------------------
 # CodeBuild Projects
@@ -697,6 +651,33 @@ resource "aws_ecs_service" "backend_service" {
     security_groups  = [aws_security_group.backend_sg.id] # Replace with your security group IDs
     assign_public_ip = true
   }
+
+  # load_balancer {
+  #   target_group_arn = aws_lb_target_group.backend_target_group.arn
+  #   container_name   = "backend"
+  #   container_port   = 8080
+  # }
+
+  depends_on = [
+    aws_lb_target_group.backend_target_group,
+    aws_lb_listener.http_listener
+  ]
+}
+
+resource "aws_lb_listener_rule" "backend_listener_rule" {
+  listener_arn = aws_lb_listener.http_listener.arn
+  priority     = 10
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend_target_group.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/sc-bk/*"]
+    }
+  }
 }
 
 resource "aws_ecs_service" "frontend_service" {
@@ -709,6 +690,33 @@ resource "aws_ecs_service" "frontend_service" {
     subnets          = ["subnet-015f9ef9f50348937"]        # Replace with your subnet IDs
     security_groups  = [aws_security_group.frontend_sg.id] # Replace with your security group IDs
     assign_public_ip = true
+  }
+
+  # load_balancer {
+  #   target_group_arn = aws_lb_target_group.frontend_target_group.arn
+  #   container_name   = "frontend"
+  #   container_port   = 3000
+  # }
+
+  depends_on = [
+    aws_lb_target_group.frontend_target_group,
+    aws_lb_listener.http_listener
+  ]
+}
+
+resource "aws_lb_listener_rule" "frontend_listener_rule" {
+  listener_arn = aws_lb_listener.http_listener.arn
+  priority     = 11
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.frontend_target_group.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/sc-ui/*"]
+    }
   }
 }
 
@@ -890,17 +898,17 @@ resource "aws_cloudwatch_log_group" "backend_log_group" {
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "frontend_log_subscription_filter" {
-  name            = "frontend-log-subscription-filter" # Name of the subscription filter
-  log_group_name  = aws_cloudwatch_log_group.frontend_log_group.name # CloudWatch Log group to monitor (frontend logs)
-  filter_pattern  = "ERROR" # Filter pattern to capture ERROR logs
+  name            = "frontend-log-subscription-filter"                           # Name of the subscription filter
+  log_group_name  = aws_cloudwatch_log_group.frontend_log_group.name             # CloudWatch Log group to monitor (frontend logs)
+  filter_pattern  = "ERROR"                                                      # Filter pattern to capture ERROR logs
   destination_arn = aws_lambda_function.frontend_error_logs_processor_lambda.arn # Ensure the ECS service is running before creating the filter
   depends_on      = [aws_ecs_service.frontend_service]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "backend_log_subscription_filter" {
-  name            = "backend-log-subscription-filter" # Name of the subscription filter
-  log_group_name  = aws_cloudwatch_log_group.backend_log_group.name # CloudWatch Log group to monitor (backend logs)
-  filter_pattern  = "ERROR" # Filter pattern to capture ERROR logs
+  name            = "backend-log-subscription-filter"                           # Name of the subscription filter
+  log_group_name  = aws_cloudwatch_log_group.backend_log_group.name             # CloudWatch Log group to monitor (backend logs)
+  filter_pattern  = "ERROR"                                                     # Filter pattern to capture ERROR logs
   destination_arn = aws_lambda_function.backend_error_logs_processor_lambda.arn # Ensure the ECS service is running before creating the filter
   depends_on      = [aws_ecs_service.backend_service]
 }

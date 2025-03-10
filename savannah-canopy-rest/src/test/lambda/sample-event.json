@@ -1,0 +1,5 @@
+{
+  "awslogs": {
+    "data": "{\"logEvents\":[{\"message\": \"ERROR: Something went wrong\", \"timestamp\": 1587558292000}]}"
+  }
+}

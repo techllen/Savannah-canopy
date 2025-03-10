@@ -42,4 +42,13 @@ public class PaymentController {
         logger.info("Health check successful");
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/ErrorPage")
+    public ResponseEntity<Map<String, String>> error() {
+        logger.error("Error occured");
+        Map<String, String> response = new HashMap<>();
+        response.put("status", "error");
+        logger.info("Check the app, you have a bug");
+        return ResponseEntity.ok(response);
+    }
 }
