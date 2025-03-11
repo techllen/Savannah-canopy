@@ -1038,29 +1038,32 @@ def lambda_handler(event, context):
         if "ERROR" in message:
             print(f"Error message: {message}")
             try:
-                prompt = f"Explain the following error message and suggest possible solutions: {message}"
-                body = json.dumps({
-                    "prompt": prompt,
+
+                prompt = message
+
+                payload = {
+                    "prompt": f"<s>[INST] {prompt} [/INST]",
                     "max_tokens": 500,
-                    "temperature": 0.5,
-                })
+                    "temperature": 0.5
+                }
 
                 response = bedrock_runtime.invoke_model(
-                    body=body,
                     modelId=model_id,
-                    contentType='application/json'
+                    accept='application/json',
+                    contentType='application/json',
+                    body=json.dumps(payload),
                 )
 
-                response_body = json.loads(response.get('body', {}).read().decode('utf-8'))
-                completion = response_body.get('generation', 'No response generated')
-                print(f"Bedrock response: {completion}")
+                response_body = json.loads(response['body'].read())
+                generated_text = response_body['outputs'][0]['text']
+                # print(f"Bedrock response: {generated_text}")
 
             except Exception as e:
                 print(f"Error invoking Bedrock: {e}")
 
     return {
         'statusCode': 200,
-        'body': json.dumps('Logs processed!')
+        'body': json.dumps({'generated_text': generated_text})
     }
 EOF
   output_path             = "frontend_lambda_function.zip"
@@ -1103,29 +1106,32 @@ def lambda_handler(event, context):
         if "ERROR" in message:
             print(f"Error message: {message}")
             try:
-                prompt = f"Explain the following error message and suggest possible solutions: {message}"
-                body = json.dumps({
-                    "prompt": prompt,
+
+                prompt = message
+
+                payload = {
+                    "prompt": f"<s>[INST] {prompt} [/INST]",
                     "max_tokens": 500,
-                    "temperature": 0.5,
-                })
+                    "temperature": 0.5
+                }
 
                 response = bedrock_runtime.invoke_model(
-                    body=body,
                     modelId=model_id,
-                    contentType='application/json'
+                    accept='application/json',
+                    contentType='application/json',
+                    body=json.dumps(payload),
                 )
 
-                response_body = json.loads(response.get('body', {}).read().decode('utf-8'))
-                completion = response_body.get('generation', 'No response generated')
-                print(f"Bedrock response: {completion}")
+                response_body = json.loads(response['body'].read())
+                generated_text = response_body['outputs'][0]['text']
+                # print(f"Bedrock response: {generated_text}")
 
             except Exception as e:
                 print(f"Error invoking Bedrock: {e}")
 
     return {
         'statusCode': 200,
-        'body': json.dumps('Logs processed!')
+        'body': json.dumps({'generated_text': generated_text})
     }
 EOF
   output_path             = "backend_lambda_function.zip"
