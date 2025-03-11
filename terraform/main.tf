@@ -1218,6 +1218,7 @@ resource "aws_lambda_function" "post_process_ai_agent_output_lambda" {
       LINE_NUMBER       = "0"                             # Replace with your line number
     }
   }
+  layers = [aws_lambda_layer_version.requests_layer.arn] # Attaching leyer
 }
 
 # Create zip file for post processing AI agent lambda function
@@ -1298,4 +1299,16 @@ resource "aws_lambda_permission" "allow_post_processing_invocation" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.post_process_ai_agent_output_lambda.function_name
   principal     = "*" # Be mindful of security implications. Restrict as needed.
+}
+
+# -----------------------------------------------------------------------------------------------------------------------
+# Adding custom request layer
+# -----------------------------------------------------------------------------------------------------------------------
+
+resource "aws_lambda_layer_version" "requests_layer" {
+  layer_name          = "requests-layer"
+  description         = "Lambda layer with the requests module"
+  compatible_runtimes = ["python3.9"]
+  filename            = "requests-layer-dependencies.zip" # file is Terraform working directory
+  source_code_hash    = filebase64sha256("requests-layer-dependencies.zip")
 }
