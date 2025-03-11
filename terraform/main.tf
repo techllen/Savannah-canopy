@@ -990,8 +990,6 @@ resource "aws_cloudwatch_log_subscription_filter" "backend_log_subscription_filt
   depends_on      = [aws_ecs_service.backend_service]
 }
 
-# ... (rest of your code) ...
-
 # Lambda Permission for CloudWatch Logs (Frontend)
 resource "aws_lambda_permission" "allow_cloudwatch_logs_frontend" {
   statement_id  = "AllowExecutionFromCloudWatchLogsFrontend"                                                                                  # Unique ID for the permission statement
@@ -1019,6 +1017,8 @@ import json
 import boto3
 import base64
 import os
+
+lambda_client = boto3.client('lambda')
 
 bedrock_runtime = boto3.client(service_name='bedrock-runtime')
 model_id = os.environ['BEDROCK_MODEL_ID'] # get id from env variable
@@ -1061,6 +1061,16 @@ def lambda_handler(event, context):
                 generated_text = response_body['outputs'][0]['text']
                 # print(f"Bedrock response: {generated_text}")
 
+                # *** INVOKE POST-PROCESSING LAMBDA ***
+                invoke_response = lambda_client.invoke(
+                    FunctionName='post-process-ai-agent-output-lambda',
+                    InvocationType='RequestResponse',
+                    Payload=json.dumps({'body': json.dumps({'generated_text': generated_text})})
+                )
+
+                post_process_result = json.loads(invoke_response['Payload'].read())
+                print(f"Post-processed result: {post_process_result}")
+
             except Exception as e:
                 print(f"Error invoking Bedrock: {e}")
 
@@ -1091,6 +1101,8 @@ import json
 import boto3
 import base64
 import os
+
+lambda_client = boto3.client('lambda')
 
 bedrock_runtime = boto3.client(service_name='bedrock-runtime')
 model_id = os.environ['BEDROCK_MODEL_ID'] # get id from env variable
@@ -1134,6 +1146,16 @@ def lambda_handler(event, context):
                 generated_text = response_body['outputs'][0]['text']
                 # print(f"Bedrock response: {generated_text}")
 
+                # *** INVOKE POST-PROCESSING LAMBDA ***
+                invoke_response = lambda_client.invoke(
+                    FunctionName='post-process-ai-agent-output-lambda',
+                    InvocationType='RequestResponse',
+                    Payload=json.dumps({'body': json.dumps({'generated_text': generated_text})})
+                )
+
+                post_process_result = json.loads(invoke_response['Payload'].read())
+                print(f"Post-processed result: {post_process_result}")
+
             except Exception as e:
                 print(f"Error invoking Bedrock: {e}")
     # Return the AI agent's output.
@@ -1152,4 +1174,128 @@ resource "aws_s3_object" "backend_lambda_zip_upload" {
   key    = data.archive_file.backend_lambda_zip.output_path
   source = data.archive_file.backend_lambda_zip.output_path
   etag   = filemd5(data.archive_file.backend_lambda_zip.output_path)
+}
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Post agent processing
+# ----------------------------------------------------------------------------------------------------------------------
+# Lambda Permission for Frontend Error Logs Processor to invoke Post-Processing Lambda
+resource "aws_lambda_permission" "allow_frontend_error_logs_invoke_post_process" {
+  statement_id  = "AllowFrontendErrorLogsInvokePostProcess"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_process_ai_agent_output_lambda.function_name
+  principal     = "lambda.amazonaws.com"
+  source_arn    = aws_lambda_function.frontend_error_logs_processor_lambda.arn
+}
+
+# Lambda Permission for Backend Error Logs Processor to invoke Post-Processing Lambda
+resource "aws_lambda_permission" "allow_backend_error_logs_invoke_post_process" {
+  statement_id  = "AllowBackendErrorLogsInvokePostProcess"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_process_ai_agent_output_lambda.function_name
+  principal     = "lambda.amazonaws.com"
+  source_arn    = aws_lambda_function.backend_error_logs_processor_lambda.arn
+}
+
+
+# Lambda Function for Post-Processing AI Agent Output
+resource "aws_lambda_function" "post_process_ai_agent_output_lambda" {
+  function_name    = "post-process-ai-agent-output-lambda"
+  role             = aws_iam_role.lambda_execution_role.arn
+  handler          = "lambda_function.lambda_handler"
+  runtime          = "python3.9"
+  timeout          = 15
+  source_code_hash = data.archive_file.post_process_lambda_zip.output_base64sha256
+  s3_bucket        = aws_s3_bucket.codepipeline_bucket.id
+  s3_key           = data.archive_file.post_process_lambda_zip.output_path
+  depends_on       = [aws_s3_object.post_process_lambda_zip_upload]
+  environment {
+    variables = {
+      GITHUB_TOKEN      = var.github_oauth_token # Ensure you have this variable defined
+      GITHUB_REPO_OWNER = var.github_repo_owner
+      GITHUB_REPO_NAME  = var.github_repo_name
+      FILE_PATH         = "savannah-canopy-rest/src/test" # Replace with your file path
+      LINE_NUMBER       = "0"                             # Replace with your line number
+    }
+  }
+}
+
+# Create zip file for post processing AI agent lambda function
+data "archive_file" "post_process_lambda_zip" {
+  type                    = "zip"
+  source_content          = <<EOF
+import json
+import os
+import requests
+
+def lambda_handler(event, context):
+    try:
+        # Extract environment variables
+        github_token = os.environ['GITHUB_TOKEN']
+        repo_owner = os.environ['GITHUB_REPO_OWNER']
+        repo_name = os.environ['GITHUB_REPO_NAME']
+        file_path = os.environ['FILE_PATH']
+        line_number = int(os.environ['LINE_NUMBER'])
+
+        # Extract the AI agent's output
+        body = json.loads(event['body'])
+        generated_text = json.loads(body['generated_text'])
+
+        # Format the output (you can refine this part)
+        formatted_text = f"\\n# AI Agent Suggestion:\\n{generated_text}\\n"
+        print('generated_text')
+
+        # Get the file content
+        headers = {'Authorization': f'token {github_token}'}
+        file_url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{file_path}?ref=main'
+        file_response = requests.get(file_url, headers=headers)
+        file_response.raise_for_status()
+        file_data = file_response.json()
+        file_content = file_data['content']
+        file_sha = file_data['sha']
+
+        # Decode and modify the file content
+        decoded_content = requests.get(file_data['download_url']).text.splitlines()
+        decoded_content.insert(line_number - 1, formatted_text)
+        updated_content = '\\n'.join(decoded_content).encode('utf-8')
+        updated_content_base64 = base64.b64encode(updated_content).decode('utf-8')
+
+        # Commit the changes to a new branch
+        branch_name = f'ai-suggestion-{context.aws_request_id}'
+        create_branch_url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/git/refs'
+        default_branch_sha = requests.get(f'https://api.github.com/repos/{repo_owner}/{repo_name}/git/refs/heads/main', headers=headers).json()['object']['sha']
+        requests.post(create_branch_url, headers=headers, json={'ref': f'refs/heads/{branch_name}', 'sha': default_branch_sha}).raise_for_status()
+
+        # Update the file in the new branch
+        update_file_url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{file_path}'
+        requests.put(update_file_url, headers=headers, json={'message': 'AI agent suggestion', 'content': updated_content_base64, 'sha': file_sha, 'branch': branch_name}).raise_for_status()
+
+        # Create the pull request
+        create_pr_url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/pulls'
+        requests.post(create_pr_url, headers=headers, json={'title': 'AI agent suggestion', 'head': branch_name, 'base': 'feature/test'}).raise_for_status()
+
+        return {'statusCode': 200, 'body': json.dumps({'message': 'Pull request created'})}
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+EOF
+  output_path             = "post_process_lambda_function.zip"
+  source_content_filename = "lambda_function.py"
+}
+
+# Upload post processing zip to S3
+resource "aws_s3_object" "post_process_lambda_zip_upload" {
+  bucket = aws_s3_bucket.codepipeline_bucket.id
+  key    = data.archive_file.post_process_lambda_zip.output_path
+  source = data.archive_file.post_process_lambda_zip.output_path
+  etag   = filemd5(data.archive_file.post_process_lambda_zip.output_path)
+}
+
+# Lambda Permission for Post Processing
+resource "aws_lambda_permission" "allow_post_processing_invocation" {
+  statement_id  = "AllowExecutionFromAnywhere"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_process_ai_agent_output_lambda.function_name
+  principal     = "*" # Be mindful of security implications. Restrict as needed.
 }
