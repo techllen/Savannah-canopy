@@ -54,3 +54,9 @@ variable "dockerhub_access_token" {
   description = "Docker Hub Access Token"
   type        = string
 }
+
+variable "bedrock_model_id" {
+  description = "The Bedrock model ID to use."
+  type        = string
+  default     = "mistral.mistral-7b-instruct-v0:2" # Default model
+}

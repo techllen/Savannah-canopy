@@ -887,6 +887,11 @@ resource "aws_lambda_function" "frontend_error_logs_processor_lambda" {
   s3_bucket        = aws_s3_bucket.codepipeline_bucket.id
   s3_key           = data.archive_file.frontend_lambda_zip.output_path
   depends_on       = [aws_s3_object.frontend_lambda_zip_upload]
+  environment {
+    variables = {
+      BEDROCK_MODEL_ID = var.bedrock_model_id
+    }
+  }
 }
 
 # Lambda Function for Backend Error Log Processing
@@ -900,6 +905,11 @@ resource "aws_lambda_function" "backend_error_logs_processor_lambda" {
   s3_bucket        = aws_s3_bucket.codepipeline_bucket.id
   s3_key           = data.archive_file.backend_lambda_zip.output_path
   depends_on       = [aws_s3_object.backend_lambda_zip_upload]
+  environment {
+    variables = {
+      BEDROCK_MODEL_ID = var.bedrock_model_id
+    }
+  }
 }
 
 # Lambda Execution Role
@@ -938,9 +948,10 @@ resource "aws_iam_policy" "lambda_bedrock_policy" {
         Effect = "Allow",
         Action = [
           "bedrock:InvokeModel",
-          "bedrock-runtime:InvokeModel"
+          "bedrock-runtime:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream"
         ],
-        Resource = "arn:aws:bedrock-runtime:us-east-1::model/mistral.mistral-7b-instruct-v1" # model to use
+        Resource = "arn:aws:bedrock:us-east-1::foundation-model/${var.bedrock_model_id}" # model to use
       }
     ]
   })
@@ -1005,15 +1016,25 @@ data "archive_file" "frontend_lambda_zip" {
   source_content          = <<EOF
 import json
 import boto3
+import base64
+import os
 
 bedrock_runtime = boto3.client(service_name='bedrock-runtime')
-model_id = 'mistral.mistral-7b-instruct-v1'
+model_id = os.environ['BEDROCK_MODEL_ID'] # get id from env variable
 
 def lambda_handler(event, context):
-    log_events = event['awslogs']['data']
-    decoded_logs = json.loads(log_events)
-    for log_event in decoded_logs['logEvents']:
-        message = log_event['message']
+    # Ensure the `awslogs` key exists
+    if 'awslogs' not in event or 'data' not in event['awslogs']:
+        print("Invalid event format: Missing 'awslogs.data'")
+        return {'statusCode': 400, 'body': 'Invalid event format'}
+
+    # Decode log data
+    data = base64.b64decode(event['awslogs']['data'])
+    log_data = json.loads(data)
+
+    for log_event in log_data.get('logEvents', []):
+        message = log_event.get('message', '')
+
         if "ERROR" in message:
             print(f"Error message: {message}")
             try:
@@ -1024,9 +1045,14 @@ def lambda_handler(event, context):
                     "temperature": 0.5,
                 })
 
-                response = bedrock_runtime.invoke_model(body=body, modelId=model_id, contentType='application/json')
-                response_body = json.loads(response.get('body').read())
-                completion = response_body['generation']
+                response = bedrock_runtime.invoke_model(
+                    body=body,
+                    modelId=model_id,
+                    contentType='application/json'
+                )
+
+                response_body = json.loads(response.get('body', {}).read().decode('utf-8'))
+                completion = response_body.get('generation', 'No response generated')
                 print(f"Bedrock response: {completion}")
 
             except Exception as e:
@@ -1055,15 +1081,25 @@ data "archive_file" "backend_lambda_zip" {
   source_content          = <<EOF
 import json
 import boto3
+import base64
+import os
 
 bedrock_runtime = boto3.client(service_name='bedrock-runtime')
-model_id = 'mistral.mistral-7b-instruct-v1'
+model_id = os.environ['BEDROCK_MODEL_ID'] # get id from env variable
 
 def lambda_handler(event, context):
-    log_events = event['awslogs']['data']
-    decoded_logs = json.loads(log_events)
-    for log_event in decoded_logs['logEvents']:
-        message = log_event['message']
+    # Ensure the `awslogs` key exists
+    if 'awslogs' not in event or 'data' not in event['awslogs']:
+        print("Invalid event format: Missing 'awslogs.data'")
+        return {'statusCode': 400, 'body': 'Invalid event format'}
+
+    # Decode log data
+    data = base64.b64decode(event['awslogs']['data'])
+    log_data = json.loads(data)
+
+    for log_event in log_data.get('logEvents', []):
+        message = log_event.get('message', '')
+
         if "ERROR" in message:
             print(f"Error message: {message}")
             try:
@@ -1074,9 +1110,14 @@ def lambda_handler(event, context):
                     "temperature": 0.5,
                 })
 
-                response = bedrock_runtime.invoke_model(body=body, modelId=model_id, contentType='application/json')
-                response_body = json.loads(response.get('body').read())
-                completion = response_body['generation']
+                response = bedrock_runtime.invoke_model(
+                    body=body,
+                    modelId=model_id,
+                    contentType='application/json'
+                )
+
+                response_body = json.loads(response.get('body', {}).read().decode('utf-8'))
+                completion = response_body.get('generation', 'No response generated')
                 print(f"Bedrock response: {completion}")
 
             except Exception as e:
