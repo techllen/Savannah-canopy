@@ -1010,10 +1010,11 @@ resource "aws_lambda_permission" "allow_cloudwatch_logs_backend" {
   source_arn    = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/backend-app:*" # Source ARN for CloudWatch Logs
 }
 
-# Create zip file for frontend lambda function
+# Create zip file for frontend AI agent lambda function
 data "archive_file" "frontend_lambda_zip" {
   type                    = "zip"
   source_content          = <<EOF
+# lambda function integrated with an AI agent
 import json
 import boto3
 import base64
@@ -1038,15 +1039,17 @@ def lambda_handler(event, context):
         if "ERROR" in message:
             print(f"Error message: {message}")
             try:
-
-                prompt = message
+                # Compiling a prompt
+                prompt = f'As an software engineer Provide a solution and test cases for this error: {message}'
 
                 payload = {
                     "prompt": f"<s>[INST] {prompt} [/INST]",
                     "max_tokens": 500,
                     "temperature": 0.5
                 }
-
+                # *** AI AGENT INVOCATION ***
+                # The following call sends the error message as a prompt to the Amazon Bedrock model.
+                # Agentic behavior.
                 response = bedrock_runtime.invoke_model(
                     modelId=model_id,
                     accept='application/json',
@@ -1061,6 +1064,7 @@ def lambda_handler(event, context):
             except Exception as e:
                 print(f"Error invoking Bedrock: {e}")
 
+# Return the AI agent's output.
     return {
         'statusCode': 200,
         'body': json.dumps({'generated_text': generated_text})
@@ -1078,10 +1082,11 @@ resource "aws_s3_object" "frontend_lambda_zip_upload" {
   etag   = filemd5(data.archive_file.frontend_lambda_zip.output_path)
 }
 
-# Create zip file for backend lambda function
+# Create zip file for backend AI agent lambda function
 data "archive_file" "backend_lambda_zip" {
   type                    = "zip"
   source_content          = <<EOF
+# lambda function integrated with an AI agent
 import json
 import boto3
 import base64
@@ -1107,14 +1112,17 @@ def lambda_handler(event, context):
             print(f"Error message: {message}")
             try:
 
-                prompt = message
+                # Compiling a prompt
+                prompt = f'As an software engineer Provide a solution and test cases for this error: {message}'
 
                 payload = {
                     "prompt": f"<s>[INST] {prompt} [/INST]",
                     "max_tokens": 500,
                     "temperature": 0.5
                 }
-
+                # *** AI AGENT INVOCATION ***
+                # The following call sends the error message as a prompt to the Amazon Bedrock model.
+                # # Agentic behavior.
                 response = bedrock_runtime.invoke_model(
                     modelId=model_id,
                     accept='application/json',
@@ -1128,7 +1136,7 @@ def lambda_handler(event, context):
 
             except Exception as e:
                 print(f"Error invoking Bedrock: {e}")
-
+    # Return the AI agent's output.
     return {
         'statusCode': 200,
         'body': json.dumps({'generated_text': generated_text})
