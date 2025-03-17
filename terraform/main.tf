@@ -7,7 +7,6 @@ data "aws_region" "current" {}
 
 locals {
   ecr_repository_url_backend  = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com/plantstore-backend-registry"
-  ecr_repository_url_frontend = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com/plantstore-frontend-registry"
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -185,8 +184,7 @@ resource "aws_iam_role_policy" "codepipeline_codebuild_policy" {
         "codebuild:BatchGetProjects"
       ],
       "Resource": [
-        "arn:aws:codebuild:us-east-1:539247457480:project/plantstore-backend-build",
-        "arn:aws:codebuild:us-east-1:539247457480:project/plantstore-frontend-build"
+        "arn:aws:codebuild:us-east-1:539247457480:project/plantstore-backend-build"
       ]
     }
   ]
@@ -365,21 +363,6 @@ resource "aws_lb_target_group" "backend_target_group" {
   }
 }
 
-# ALB Target Group for Frontend
-resource "aws_lb_target_group" "frontend_target_group" {
-  name        = "frontend-tg"
-  port        = 3000
-  protocol    = "HTTP"
-  vpc_id      = "vpc-085257437561e6789" #Replace with your VPC ID
-  target_type = "ip"
-
-  health_check {
-    path     = "/" #  frontend healthcheck path
-    protocol = "HTTP"
-    port     = 3000
-  }
-}
-
 # ALB Listener for HTTP (Redirect to HTTPS)
 resource "aws_lb_listener" "http_listener" {
   load_balancer_arn = aws_lb.application_load_balancer.arn
@@ -402,8 +385,7 @@ resource "aws_lb_listener" "http_listener" {
 # ---------------------------------------------------------------------------------------------------------------------
 
 # Define CodeBuild Projects
-# two CodeBuild projects—one for building the backend and one for the frontend , uses buildspec-backend.yml and
-# buildspec-frontend.yml
+# CodeBuild projects , uses buildspec-backend.yml
 
 resource "aws_codebuild_project" "backend_build" {
   name         = "plantstore-backend-build"
@@ -428,38 +410,11 @@ resource "aws_codebuild_project" "backend_build" {
   }
 }
 
-resource "aws_codebuild_project" "frontend_build" {
-  name         = "plantstore-frontend-build"
-  service_role = aws_iam_role.codebuild_role.arn # codebuild role
-  artifacts {
-    type     = "CODEPIPELINE"
-    location = aws_s3_bucket.codepipeline_bucket.id
-    name     = "frontend-output"
-  }
-  environment {
-    compute_type = "BUILD_GENERAL1_SMALL"
-    image        = "aws/codebuild/standard:7.0"
-    type         = "LINUX_CONTAINER"
-    environment_variable {
-      name  = "NODE_VERSION"
-      value = "18"
-    }
-  }
-  source {
-    type      = "CODEPIPELINE"
-    buildspec = file("../buildspec-frontend.yml")
-  }
-}
-
 # ----------------------------------------------------------------------------------------------------------------------
 # ECR Repositories
 # ----------------------------------------------------------------------------------------------------------------------
 resource "aws_ecr_repository" "backend_registry" {
   name = "plantstore-backend-registry"
-}
-
-resource "aws_ecr_repository" "frontend_registry" {
-  name = "plantstore-frontend-registry"
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -586,48 +541,6 @@ resource "aws_ecs_task_definition" "backend_task" {
 DEFINITION
 }
 
-resource "aws_ecs_task_definition" "frontend_task" {
-  family                   = "frontend-task"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = 256
-  memory                   = 512
-  execution_role_arn       = aws_iam_role.ecs_tasks_execution_role.arn
-
-  container_definitions = <<DEFINITION
-[
-  {
-    "name": "frontend",
-    "image": "${local.ecr_repository_url_frontend}:latest",
-    "portMappings": [
-      {
-        "containerPort": 3000,
-        "hostPort": 3000
-      }
-    ],
-    "essential": true,
-    "logConfiguration": {
-      "logDriver": "awslogs",
-      "options": {
-        "awslogs-group": "/ecs/frontend-app",
-        "awslogs-region": "${data.aws_region.current.name}",
-        "awslogs-stream-prefix": "ecs"
-      }
-    },
-    "startCount": 1,
-    "failureThreshold": 3,
-    "healthCheck": {
-      "command": ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"],
-      "interval": 30,
-      "timeout": 5,
-      "retries": 3,
-      "startPeriod": 60
-    }
-  }
-]
-DEFINITION
-}
-
 # # ---------------------------------------------------------------------------------------------------------------------
 # # ECS Services security groups
 # # ---------------------------------------------------------------------------------------------------------------------
@@ -641,29 +554,6 @@ resource "aws_security_group" "backend_sg" {
   ingress {
     from_port   = 8080
     to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Allow all outbound traffic
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-# Security Group for Frontend Service
-resource "aws_security_group" "frontend_sg" {
-  name        = "frontend-sg"
-  description = "Security group for frontend service"
-  vpc_id      = "vpc-085257437561e6789" # Replace with your VPC ID
-
-  # Allow inbound traffic on port 3000 from anywhere
-  ingress {
-    from_port   = 3000
-    to_port     = 3000
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -720,53 +610,13 @@ resource "aws_lb_listener_rule" "backend_listener_rule" {
   }
 }
 
-resource "aws_ecs_service" "frontend_service" {
-  name            = var.ecs_service_name_frontend
-  cluster         = aws_ecs_cluster.plantstore_cluster.id
-  task_definition = aws_ecs_task_definition.frontend_task.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-  network_configuration {
-    subnets          = ["subnet-015f9ef9f50348937"]        # Replace with your subnet IDs
-    security_groups  = [aws_security_group.frontend_sg.id] # Replace with your security group IDs
-    assign_public_ip = true
-  }
-
-  load_balancer {
-    target_group_arn = aws_lb_target_group.frontend_target_group.arn
-    container_name   = "frontend"
-    container_port   = 3000
-  }
-
-  depends_on = [
-    aws_lb_target_group.frontend_target_group,
-    aws_lb_listener.http_listener
-  ]
-}
-
-resource "aws_lb_listener_rule" "frontend_listener_rule" {
-  listener_arn = aws_lb_listener.http_listener.arn
-  priority     = 11
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.frontend_target_group.arn
-  }
-
-  condition {
-    path_pattern {
-      values = ["/sc-ui/*"]
-    }
-  }
-}
-
 # ---------------------------------------------------------------------------------------------------------------------
 # CodePipeline
 # ---------------------------------------------------------------------------------------------------------------------
 
 # Define the CodePipeline with 3 stages
 # Source Stage: Retrieves code from GitHub.
-# Build Stage: Executes two actions—one for backend and one for frontend.
+# Build Stage: Executes two actions—one for backend
 # Deploy Stage: Deploys the built artifacts to an ECS cluster (replace with your ECS settings)-later on
 resource "aws_codepipeline" "plantstore_pipeline" {
   name     = "plantstore-pipeline"
@@ -784,11 +634,11 @@ resource "aws_codepipeline" "plantstore_pipeline" {
     name = "Source"
 
     action {
-      name             = "GitHub_Source"
-      category         = "Source"
-      owner            = "ThirdParty"
-      provider         = "GitHub"
-      version          = "1"
+      name     = "GitHub_Source"
+      category = "Source"
+      owner    = "ThirdParty"
+      provider = "GitHub"
+      version  = "1"
       output_artifacts = ["source_output"]
       configuration = {
         Owner      = var.github_repo_owner
@@ -803,34 +653,19 @@ resource "aws_codepipeline" "plantstore_pipeline" {
     name = "Build_backend"
 
     action {
-      name             = "Backend_Build"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      input_artifacts  = ["source_output"]
+      name     = "Backend_Build"
+      category = "Build"
+      owner    = "AWS"
+      provider = "CodeBuild"
+      input_artifacts = ["source_output"]
       output_artifacts = ["backend_build_output"]
-      version          = "1"
+      version  = "1"
       configuration = {
         ProjectName = aws_codebuild_project.backend_build.name
       }
     }
   }
 
-  stage {
-    name = "Build_frontend"
-    action {
-      name             = "Frontend_Build"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      input_artifacts  = ["source_output"]
-      output_artifacts = ["frontend_build_output"]
-      version          = "1"
-      configuration = {
-        ProjectName = aws_codebuild_project.frontend_build.name
-      }
-    }
-  }
 
   # ---------------------------------------------------------------------------------------------------------------------
   # Deploying to ECS
@@ -839,12 +674,12 @@ resource "aws_codepipeline" "plantstore_pipeline" {
     name = "Deploy_backend"
 
     action {
-      name            = "Deploy_to_ECS_backend"
-      category        = "Deploy"
-      owner           = "AWS"
-      provider        = "ECS"
+      name     = "Deploy_to_ECS_backend"
+      category = "Deploy"
+      owner    = "AWS"
+      provider = "ECS"
       input_artifacts = ["backend_build_output"]
-      version         = "1"
+      version  = "1"
       configuration = {
         ClusterName = aws_ecs_cluster.plantstore_cluster.name
         ServiceName = aws_ecs_service.backend_service.name
@@ -852,47 +687,10 @@ resource "aws_codepipeline" "plantstore_pipeline" {
       }
     }
   }
-
-  stage {
-    name = "Deploy_frontend"
-
-    action {
-      name            = "Deploy_to_ECS_frontend"
-      category        = "Deploy"
-      owner           = "AWS"
-      provider        = "ECS"
-      input_artifacts = ["frontend_build_output"]
-      version         = "1"
-      configuration = {
-        ClusterName = aws_ecs_cluster.plantstore_cluster.name
-        ServiceName = aws_ecs_service.frontend_service.name
-        FileName    = "imagedefinitions-frontend.json"
-      }
-    }
-  }
 }
-
 # ---------------------------------------------------------------------------------------------------------------------
 # CloudWatch Logs Subscription Filters and Lambda Functions (Terraform, Inline Code)
 # ---------------------------------------------------------------------------------------------------------------------
-
-# Lambda Function for Frontend Error Log Processing
-resource "aws_lambda_function" "frontend_error_logs_processor_lambda" {
-  function_name    = "frontend-error-logs-processor-lambda"
-  role             = aws_iam_role.lambda_execution_role.arn
-  handler          = "lambda_function.lambda_handler"
-  runtime          = "python3.9"
-  timeout          = 15
-  source_code_hash = data.archive_file.frontend_lambda_zip.output_base64sha256
-  s3_bucket        = aws_s3_bucket.codepipeline_bucket.id
-  s3_key           = data.archive_file.frontend_lambda_zip.output_path
-  depends_on       = [aws_s3_object.frontend_lambda_zip_upload]
-  environment {
-    variables = {
-      BEDROCK_MODEL_ID = var.bedrock_model_id
-    }
-  }
-}
 
 # Lambda Function for Backend Error Log Processing
 resource "aws_lambda_function" "backend_error_logs_processor_lambda" {
@@ -964,22 +762,9 @@ resource "aws_iam_role_policy_attachment" "lambda_bedrock_policy_attachment" {
 }
 
 #create the corresponding CloudWatch Log Groups
-resource "aws_cloudwatch_log_group" "frontend_log_group" {
-  name              = "/ecs/frontend-app"
-  retention_in_days = 3
-}
-
 resource "aws_cloudwatch_log_group" "backend_log_group" {
   name              = "/ecs/backend-app"
   retention_in_days = 3
-}
-
-resource "aws_cloudwatch_log_subscription_filter" "frontend_log_subscription_filter" {
-  name            = "frontend-log-subscription-filter"                           # Name of the subscription filter
-  log_group_name  = aws_cloudwatch_log_group.frontend_log_group.name             # CloudWatch Log group to monitor (frontend logs)
-  filter_pattern  = "ERROR"                                                      # Filter pattern to capture ERROR logs
-  destination_arn = aws_lambda_function.frontend_error_logs_processor_lambda.arn # Ensure the ECS service is running before creating the filter
-  depends_on      = [aws_ecs_service.frontend_service]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "backend_log_subscription_filter" {
@@ -990,15 +775,6 @@ resource "aws_cloudwatch_log_subscription_filter" "backend_log_subscription_filt
   depends_on      = [aws_ecs_service.backend_service]
 }
 
-# Lambda Permission for CloudWatch Logs (Frontend)
-resource "aws_lambda_permission" "allow_cloudwatch_logs_frontend" {
-  statement_id  = "AllowExecutionFromCloudWatchLogsFrontend"                                                                                  # Unique ID for the permission statement
-  action        = "lambda:InvokeFunction"                                                                                                     # Action to allow (invoke Lambda)
-  function_name = aws_lambda_function.frontend_error_logs_processor_lambda.function_name                                                      # Lambda function name
-  principal     = "logs.${data.aws_region.current.name}.amazonaws.com"                                                                        # Principal that can invoke the Lambda
-  source_arn    = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/frontend-app:*" # Source ARN for CloudWatch Logs
-}
-
 # Lambda Permission for CloudWatch Logs (Backend)
 resource "aws_lambda_permission" "allow_cloudwatch_logs_backend" {
   statement_id  = "AllowExecutionFromCloudWatchLogsBackend"                                                                                  # Unique ID for the permission statement
@@ -1006,90 +782,6 @@ resource "aws_lambda_permission" "allow_cloudwatch_logs_backend" {
   function_name = aws_lambda_function.backend_error_logs_processor_lambda.function_name                                                      # Lambda function name
   principal     = "logs.${data.aws_region.current.name}.amazonaws.com"                                                                       # Principal that can invoke the Lambda
   source_arn    = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/backend-app:*" # Source ARN for CloudWatch Logs
-}
-
-# Create zip file for frontend AI agent lambda function
-data "archive_file" "frontend_lambda_zip" {
-  type                    = "zip"
-  source_content          = <<EOF
-# lambda function integrated with an AI agent
-import json
-import boto3
-import base64
-import os
-
-lambda_client = boto3.client('lambda')
-
-bedrock_runtime = boto3.client(service_name='bedrock-runtime')
-model_id = os.environ['BEDROCK_MODEL_ID'] # get id from env variable
-
-def lambda_handler(event, context):
-    # Ensure the `awslogs` key exists
-    if 'awslogs' not in event or 'data' not in event['awslogs']:
-        print("Invalid event format: Missing 'awslogs.data'")
-        return {'statusCode': 400, 'body': 'Invalid event format'}
-
-    # Decode log data
-    data = base64.b64decode(event['awslogs']['data'])
-    log_data = json.loads(data)
-
-    for log_event in log_data.get('logEvents', []):
-        message = log_event.get('message', '')
-
-        if "ERROR" in message:
-            print(f"Error message: {message}")
-            try:
-                # Compiling a prompt
-                prompt = f'As an software engineer Provide a solution and test cases for this error: {message}'
-
-                payload = {
-                    "prompt": f"<s>[INST] {prompt} [/INST]",
-                    "max_tokens": 500,
-                    "temperature": 0.5
-                }
-                # *** AI AGENT INVOCATION ***
-                # The following call sends the error message as a prompt to the Amazon Bedrock model.
-                # Agentic behavior.
-                response = bedrock_runtime.invoke_model(
-                    modelId=model_id,
-                    accept='application/json',
-                    contentType='application/json',
-                    body=json.dumps(payload),
-                )
-
-                response_body = json.loads(response['body'].read())
-                generated_text = response_body['outputs'][0]['text']
-                # print(f"Bedrock response: {generated_text}")
-
-                # *** INVOKE POST-PROCESSING LAMBDA ***
-                invoke_response = lambda_client.invoke(
-                    FunctionName='post-process-ai-agent-output-lambda',
-                    InvocationType='RequestResponse',
-                    Payload=json.dumps({'body': json.dumps({'generated_text': generated_text})})
-                )
-
-                post_process_result = json.loads(invoke_response['Payload'].read())
-                print(f"Post-processed result: {post_process_result}")
-
-            except Exception as e:
-                print(f"Error invoking Bedrock: {e}")
-
-# Return the AI agent's output.
-    return {
-        'statusCode': 200,
-        'body': json.dumps({'generated_text': generated_text})
-    }
-EOF
-  output_path             = "frontend_lambda_function.zip"
-  source_content_filename = "lambda_function.py"
-}
-
-# Upload frontend zip to S3
-resource "aws_s3_object" "frontend_lambda_zip_upload" {
-  bucket = aws_s3_bucket.codepipeline_bucket.id
-  key    = data.archive_file.frontend_lambda_zip.output_path
-  source = data.archive_file.frontend_lambda_zip.output_path
-  etag   = filemd5(data.archive_file.frontend_lambda_zip.output_path)
 }
 
 # Create zip file for backend AI agent lambda function
@@ -1179,15 +871,6 @@ resource "aws_s3_object" "backend_lambda_zip_upload" {
 # ----------------------------------------------------------------------------------------------------------------------
 # Post agent processing
 # ----------------------------------------------------------------------------------------------------------------------
-# Lambda Permission for Frontend Error Logs Processor to invoke Post-Processing Lambda
-resource "aws_lambda_permission" "allow_frontend_error_logs_invoke_post_process" {
-  statement_id  = "AllowFrontendErrorLogsInvokePostProcess"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.post_process_ai_agent_output_lambda.function_name
-  principal     = "lambda.amazonaws.com"
-  source_arn    = aws_lambda_function.frontend_error_logs_processor_lambda.arn
-}
-
 # Lambda Permission for Backend Error Logs Processor to invoke Post-Processing Lambda
 resource "aws_lambda_permission" "allow_backend_error_logs_invoke_post_process" {
   statement_id  = "AllowBackendErrorLogsInvokePostProcess"
