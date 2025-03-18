@@ -1,6 +1,0 @@
-[
-  {
-    "name": "frontend",
-    "imageUri": "539247457480.dkr.ecr.us-east-1.amazonaws.com/plantstore-frontend-registry:latest"
-  }
-]
