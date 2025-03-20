@@ -17,11 +17,18 @@ public class PlantService {
 
     // Retrieve all plant products
     public List<Plant> getAllPlants() {
+
         return plantRepository.findAll();
+    }
+
+    // Retrieve plant by id
+    public Plant getPlantByID(long id){
+        return  plantRepository.getReferenceById(id);
     }
 
     // Save a plant product
     public Plant savePlant(Plant plant) {
+
         return plantRepository.save(plant);
     }
 }
