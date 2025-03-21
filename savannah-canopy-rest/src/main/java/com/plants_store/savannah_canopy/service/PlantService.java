@@ -15,20 +15,18 @@ public class PlantService {
     @Autowired
     private PlantRepository plantRepository;
 
-    // Retrieve all plant products
-    public List<Plant> getAllPlants() {
-
-        return plantRepository.findAll();
-    }
-
     // Retrieve plant by id
     public Plant getPlantByID(long id){
         return  plantRepository.getReferenceById(id);
     }
 
+    // Retrieve all plant products
+    public List<Plant> getAllPlants() {
+        return plantRepository.findAll();
+    }
+
     // Save a plant product
     public Plant savePlant(Plant plant) {
-
         return plantRepository.save(plant);
     }
 }

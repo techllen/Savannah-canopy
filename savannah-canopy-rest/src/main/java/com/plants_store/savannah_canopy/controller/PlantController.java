@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import com.plants_store.savannah_canopy.model.Plant;
 import com.plants_store.savannah_canopy.service.PlantService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,10 +36,6 @@ public class PlantController {
     })
     public ResponseEntity<Plant> getPlant(@PathVariable Long id) {
         Plant plant = plantService.getPlantByID(id);
-        if (plant == null) {
-            logger.info("Plant not found");
-            return ResponseEntity.notFound().build();
-        }
         logger.info("Plant retrieved successfully");
         return ResponseEntity.ok(plant);
     }
@@ -51,11 +48,19 @@ public class PlantController {
     })
     public ResponseEntity<List<Plant>> getAllPlants() {
         List<Plant> plants = plantService.getAllPlants();
-        if (plants.isEmpty()) {
-            logger.info("No plants found");
-            return ResponseEntity.noContent().build();
-        }
         logger.info("Plants retrieved successfully");
         return ResponseEntity.ok(plants);
+    }
+
+    @PostMapping("/plants")
+    @Operation(summary = "Add a new plant", description = "Saves a new plant in the store")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Plant created successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid plant data")
+    })
+    public ResponseEntity<Plant> addPlant(@RequestBody Plant plant) {
+        Plant savedPlant = plantService.savePlant(plant);
+        logger.info("Plant added successfully with ID: {}", savedPlant.getId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedPlant);
     }
 }
