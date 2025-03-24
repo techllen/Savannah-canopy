@@ -32,7 +32,8 @@ public class DiscountController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Discount applied successfully"),
             @ApiResponse(responseCode = "404", description = "Plant not found"),
-            @ApiResponse(responseCode = "400", description = "Invalid discount percentage")
+            @ApiResponse(responseCode = "400", description = "Invalid discount percentage"),
+            @ApiResponse(responseCode = "500", description = "Internal server error, ask developer")
     })
     public ResponseEntity<Double> applyDiscount(
             @PathVariable Long id,

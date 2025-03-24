@@ -20,9 +20,6 @@ public class Plant {
     // Image URL for the plant product
     private String imageurl;
 
-    @ManyToOne
-    @JoinColumn(name = "category_id")
-    private Category category;
 
     // Getters and setters
     public Long getId() { return id; }
@@ -39,7 +36,4 @@ public class Plant {
 
     public String getImgUrl() { return imageurl; }
     public void setImgUrl(String imgUrl) { this.imageurl = imgUrl; }
-
-    public Category getCategory() { return category; }
-    public void setCategory(Category category) { this.category = category; }
 }

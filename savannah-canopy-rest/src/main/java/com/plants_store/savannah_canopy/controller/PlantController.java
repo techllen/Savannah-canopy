@@ -32,10 +32,14 @@ public class PlantController {
     @Operation(summary = "Get a plant by ID", description = "Retrieves a plant based on its unique identifier")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Successfully retrieved the plant"),
-            @ApiResponse(responseCode = "404", description = "Plant not found")
+            @ApiResponse(responseCode = "404", description = "Plant not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error, ask developer")
     })
     public ResponseEntity<Plant> getPlant(@PathVariable Long id) {
         Plant plant = plantService.getPlantByID(id);
+        if (plant == null) {
+            throw new IllegalArgumentException("Plant cannnot be found");
+        }
         logger.info("Plant retrieved successfully");
         return ResponseEntity.ok(plant);
     }
@@ -44,7 +48,8 @@ public class PlantController {
     @Operation(summary = "Get all plants", description = "Retrieves all plants")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Successfully retrieved the plants"),
-            @ApiResponse(responseCode = "404", description = "Plants not found")
+            @ApiResponse(responseCode = "404", description = "Plants not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error, ask developer")
     })
     public ResponseEntity<List<Plant>> getAllPlants() {
         List<Plant> plants = plantService.getAllPlants();
@@ -56,7 +61,8 @@ public class PlantController {
     @Operation(summary = "Add a new plant", description = "Saves a new plant in the store")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Plant created successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid plant data")
+            @ApiResponse(responseCode = "400", description = "Invalid plant data"),
+            @ApiResponse(responseCode = "500", description = "Internal server error, ask developer")
     })
     public ResponseEntity<Plant> addPlant(@RequestBody Plant plant) {
         Plant savedPlant = plantService.savePlant(plant);

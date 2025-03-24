@@ -22,7 +22,7 @@ public class DiscountService {
             throw new IllegalArgumentException("Plant not found");
         }
 // Intentional division by zero error
-        double discountAmount = plant.getPrice() / ((double) 100 / percentage);
+        double discountAmount = plant.getPrice() / (double)( 100 / percentage);
         return plant.getPrice() - discountAmount;
     }
 }

@@ -17,7 +17,7 @@ public class PlantService {
 
     // Retrieve plant by id
     public Plant getPlantByID(long id){
-        return  plantRepository.getReferenceById(id);
+        return  plantRepository.findById(id).orElse(null);
     }
 
     // Retrieve all plant products
