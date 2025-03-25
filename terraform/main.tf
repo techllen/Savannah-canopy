@@ -6,7 +6,7 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 locals {
-  ecr_repository_url_backend  = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com/plantstore-backend-registry"
+  ecr_repository_url_backend = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com/plantstore-backend-registry"
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -219,6 +219,64 @@ resource "aws_iam_role_policy" "codebuild_logs_policy" {
 EOF
 }
 
+# ---------------------------------------------------------------------------------------------------------------------
+# # Inline policy to allow CodePipeline to use the CodeStar Connection
+# ---------------------------------------------------------------------------------------------------------------------
+# resource "aws_iam_role_policy" "codepipeline_connection_policy" {
+#   name = "codepipeline-connection-policy"
+#   role = aws_iam_role.codepipeline_role.id
+#
+#   policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [
+#       {
+#         Effect = "Allow"
+#         Action = [
+#           "codestar-connections:UseConnection"
+#         ]
+#         Resource = [
+#           aws_codestarconnections_connection.github_connection.arn
+#         ]
+#       }
+#     ]
+#   })
+# }
+
+resource "aws_iam_role_policy" "codepipeline_connection_policy" {
+  name = "codepipeline-connection-policy"
+  role = aws_iam_role.codepipeline_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "codestar-connections:UseConnection"
+        ]
+        Resource = [
+          aws_codestarconnections_connection.github_connection.arn
+        ]
+      },
+      {
+        Action = [
+          "appconfig:StartDeployment",
+          "appconfig:GetDeployment",
+          "appconfig:StopDeployment"
+        ],
+        Resource = "*",
+        Effect   = "Allow"
+      },
+      {
+        Action = [
+          "codecommit:GetRepository"
+        ],
+        Resource = "*",
+        Effect   = "Allow"
+      }
+    ]
+  })
+}
 # ---------------------------------------------------------------------------------------------------------------------
 # S3 Bucket for Artifacts
 # ---------------------------------------------------------------------------------------------------------------------
@@ -614,6 +672,12 @@ resource "aws_lb_listener_rule" "backend_listener_rule" {
 # CodePipeline
 # ---------------------------------------------------------------------------------------------------------------------
 
+# AWS Code Conection
+resource "aws_codestarconnections_connection" "github_connection" {
+  name          = "github-connection"
+  provider_type = "GitHub"
+}
+
 # Define the CodePipeline with 3 stages
 # Source Stage: Retrieves code from GitHub.
 # Build Stage: Executes two actions—one for backend
@@ -621,6 +685,55 @@ resource "aws_lb_listener_rule" "backend_listener_rule" {
 resource "aws_codepipeline" "plantstore_pipeline" {
   name     = "plantstore-pipeline"
   role_arn = aws_iam_role.codepipeline_role.arn
+
+  depends_on = [
+    aws_codestarconnections_connection.github_connection,
+    aws_iam_role_policy.codepipeline_connection_policy
+  ]
+
+  # Adding trigger
+  # trigger {
+  #   type = "webhook"
+  #   configuration = {
+  #     filters = [
+  #       {
+  #         json_path    = "$.ref"
+  #         match_equals = "refs/heads/{Branch}"
+  #       }
+  #     ]
+  #   }
+  #   provider_type = "GitHub"
+  # }
+
+  # --------------------------------------------------------------------------------------------------------------------
+  # trigger the pipeline for any push or pull request event on any branch, affecting any file path
+  # --------------------------------------------------------------------------------------------------------------------
+  trigger {
+    provider_type = "CodeStarSourceConnection"
+    git_configuration {
+      source_action_name = "GitHub_Source"
+      push {
+        branches {
+          includes = ["*"]
+        }
+        file_paths {
+          includes = ["*"]
+        }
+        tags {
+          includes = ["*"]
+        }
+      }
+      pull_request {
+        events = ["OPEN", "CLOSED"]
+        branches {
+          includes = ["*"]
+        }
+        file_paths {
+          includes = ["*"]
+        }
+      }
+    }
+  }
 
   artifact_store {
     location = aws_s3_bucket.codepipeline_bucket.id
@@ -630,36 +743,55 @@ resource "aws_codepipeline" "plantstore_pipeline" {
   # adding pipeline type
   pipeline_type = "V2"
 
+  # stage {
+  #   name = "Source"
+  #
+  #   action {
+  #     name     = "GitHub_Source"
+  #     category = "Source"
+  #     owner    = "ThirdParty"
+  #     provider = "GitHub"
+  #     version  = "1"
+  #     output_artifacts = ["source_output"]
+  #     configuration = {
+  #       Owner      = var.github_repo_owner
+  #       Repo       = var.github_repo_name
+  #       Branch     = "main"
+  #       OAuthToken = var.github_oauth_token
+  #     }
+  #   }
+  # }
+
   stage {
     name = "Source"
 
     action {
-      name     = "GitHub_Source"
-      category = "Source"
-      owner    = "ThirdParty"
-      provider = "GitHub"
-      version  = "1"
+      name             = "GitHub_Source"
+      category         = "Source"
+      owner            = "AWS"
+      provider         = "CodeStarSourceConnection"
+      version          = "1"
       output_artifacts = ["source_output"]
       configuration = {
-        Owner      = var.github_repo_owner
-        Repo       = var.github_repo_name
-        Branch     = "main"
-        OAuthToken = var.github_oauth_token
+        ConnectionArn    = aws_codestarconnections_connection.github_connection.arn
+        FullRepositoryId = "${var.github_repo_owner}/${var.github_repo_name}"
+        BranchName       = "main"
       }
     }
   }
+
 
   stage {
     name = "Build_backend"
 
     action {
-      name     = "Backend_Build"
-      category = "Build"
-      owner    = "AWS"
-      provider = "CodeBuild"
-      input_artifacts = ["source_output"]
+      name             = "Backend_Build"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      input_artifacts  = ["source_output"]
       output_artifacts = ["backend_build_output"]
-      version  = "1"
+      version          = "1"
       configuration = {
         ProjectName = aws_codebuild_project.backend_build.name
       }
@@ -673,12 +805,12 @@ resource "aws_codepipeline" "plantstore_pipeline" {
     name = "Deploy_backend"
 
     action {
-      name     = "Deploy_to_ECS_backend"
-      category = "Deploy"
-      owner    = "AWS"
-      provider = "ECS"
+      name            = "Deploy_to_ECS_backend"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "ECS"
       input_artifacts = ["backend_build_output"]
-      version  = "1"
+      version         = "1"
       configuration = {
         ClusterName = aws_ecs_cluster.plantstore_cluster.name
         ServiceName = aws_ecs_service.backend_service.name
