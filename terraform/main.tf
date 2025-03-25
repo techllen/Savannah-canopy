@@ -714,7 +714,7 @@ resource "aws_codepipeline" "plantstore_pipeline" {
       source_action_name = "GitHub_Source"
       push {
         branches {
-          includes = ["*"]
+          includes = ["feature/backend"]
         }
         file_paths {
           includes = ["*"]
@@ -726,7 +726,7 @@ resource "aws_codepipeline" "plantstore_pipeline" {
       pull_request {
         events = ["OPEN", "CLOSED"]
         branches {
-          includes = ["*"]
+          includes = ["feature/backend"]
         }
         file_paths {
           includes = ["*"]
@@ -775,7 +775,7 @@ resource "aws_codepipeline" "plantstore_pipeline" {
       configuration = {
         ConnectionArn    = aws_codestarconnections_connection.github_connection.arn
         FullRepositoryId = "${var.github_repo_owner}/${var.github_repo_name}"
-        BranchName       = "main"
+        BranchName       = "feature/backend"
       }
     }
   }
