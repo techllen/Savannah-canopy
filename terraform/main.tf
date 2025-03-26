@@ -714,19 +714,7 @@ resource "aws_codepipeline" "plantstore_pipeline" {
       source_action_name = "GitHub_Source"
       push {
         branches {
-          includes = ["feature/backend"]
-        }
-        file_paths {
-          includes = ["*"]
-        }
-      }
-      pull_request {
-        events = ["OPEN", "CLOSED"]
-        branches {
-          includes = ["feature/backend"]
-        }
-        file_paths {
-          includes = ["*"]
+          includes = ["feature/backend", "main"]
         }
       }
     }
