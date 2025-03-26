@@ -719,9 +719,6 @@ resource "aws_codepipeline" "plantstore_pipeline" {
         file_paths {
           includes = ["*"]
         }
-        tags {
-          includes = ["*"]
-        }
       }
       pull_request {
         events = ["OPEN", "CLOSED"]
