@@ -646,6 +646,10 @@ resource "aws_ecs_service" "backend_service" {
     container_port   = 8080
   }
 
+  # Controlling number of tasks deployed
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 100
+
   depends_on = [
     aws_lb_target_group.backend_target_group,
     aws_lb_listener.http_listener
@@ -1110,4 +1114,55 @@ resource "aws_lambda_layer_version" "requests_layer" {
   compatible_runtimes = ["python3.9"]
   filename            = "requests-layer-dependencies.zip" # file is Terraform working directory
   source_code_hash    = filebase64sha256("requests-layer-dependencies.zip")
+}
+
+# -----------------------------------------------------------------------------------------------------------------------
+# DB
+# -----------------------------------------------------------------------------------------------------------------------
+# Create a subnet group for the Aurora cluster
+resource "aws_db_subnet_group" "aurora_subnet_group" {
+  name       = "aurora-subnet-group"
+  subnet_ids = ["subnet-004c597f51f5a111f", "subnet-015f9ef9f50348937"]
+}
+
+# Create a security group for the Aurora cluster
+resource "aws_security_group" "aurora_sg" {
+  name        = "aurora-sg"
+  description = "Security group for Aurora cluster"
+  vpc_id      = "vpc-085257437561e6789"
+
+  ingress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Create an Aurora PostgreSQL Serverless v2 cluster
+resource "aws_rds_cluster" "aurora_cluster" {
+  cluster_identifier     = "plantstore-aurora-cluster"
+  engine                 = "aurora-postgresql"
+  engine_mode            = "provisioned"
+  engine_version         = "14.10"
+  master_username        = var.db_username
+  master_password        = var.db_password
+  db_subnet_group_name   = aws_db_subnet_group.aurora_subnet_group.name
+  vpc_security_group_ids = [aws_security_group.aurora_sg.id]
+}
+
+resource "aws_rds_cluster_instance" "aurora_cluster_instance" {
+  cluster_identifier   = aws_rds_cluster.aurora_cluster.id
+  instance_class       = "db.serverless"
+  engine               = "aurora-postgresql"
+  engine_version       = "14.10"
+  db_subnet_group_name = aws_db_subnet_group.aurora_subnet_group.name
+  publicly_accessible  = true
 }
