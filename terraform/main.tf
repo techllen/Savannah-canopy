@@ -415,7 +415,7 @@ resource "aws_lb_target_group" "backend_target_group" {
   target_type = "ip"
 
   health_check {
-    path     = "/api/payment/health" #  backend healthcheck path
+    path     = "/actuator/health" #  backend healthcheck path
     protocol = "HTTP"
     port     = 8080
   }
@@ -588,7 +588,7 @@ resource "aws_ecs_task_definition" "backend_task" {
     "startCount": 1,
     "failureThreshold": 3,
     "healthCheck": {
-      "command": ["CMD-SHELL", "curl -f http://localhost:8080/api/payment/health || exit 1"],
+      "command": ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"],
       "interval": 30,
       "timeout": 5,
       "retries": 3,
