@@ -415,7 +415,8 @@ resource "aws_lb_target_group" "backend_target_group" {
   target_type = "ip"
 
   health_check {
-    path     = "/actuator/health" #  backend healthcheck path
+    # path     = "/actuator/health" #  backend healthcheck path
+    path     = "/" #  backend healthcheck path
     protocol = "HTTP"
     port     = 8080
   }
@@ -586,7 +587,7 @@ resource "aws_ecs_task_definition" "backend_task" {
       }
     },
     "healthCheck": {
-      "command": ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"],
+      "command": ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"],
       "interval": 30,
       "timeout": 10,
       "retries": 3,
@@ -627,16 +628,21 @@ resource "aws_security_group" "backend_sg" {
 # # ECS Services
 # # ---------------------------------------------------------------------------------------------------------------------
 resource "aws_ecs_service" "backend_service" {
-  name            = var.ecs_service_name_backend
-  cluster         = aws_ecs_cluster.plantstore_cluster.id
-  task_definition = aws_ecs_task_definition.backend_task.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
+  name                              = var.ecs_service_name_backend
+  cluster                           = aws_ecs_cluster.plantstore_cluster.id
+  task_definition                   = aws_ecs_task_definition.backend_task.arn
+  desired_count                     = 1
+  launch_type                       = "FARGATE"
   health_check_grace_period_seconds = 180
   network_configuration {
     subnets          = ["subnet-004c597f51f5a111f"]       # Replace with your subnet IDs
     security_groups  = [aws_security_group.backend_sg.id] # Replace with your security group IDs
     assign_public_ip = true
+  }
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
   }
 
   load_balancer {
