@@ -561,8 +561,8 @@ resource "aws_ecs_task_definition" "backend_task" {
   family                   = "backend-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = 512
-  memory                   = 1024
+  cpu                      = 1024
+  memory                   = 2048
   execution_role_arn       = aws_iam_role.ecs_tasks_execution_role.arn
 
   container_definitions = <<DEFINITION
@@ -585,14 +585,12 @@ resource "aws_ecs_task_definition" "backend_task" {
         "awslogs-stream-prefix": "ecs"
       }
     },
-    "startCount": 1,
-    "failureThreshold": 3,
     "healthCheck": {
       "command": ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"],
       "interval": 30,
-      "timeout": 5,
+      "timeout": 10,
       "retries": 3,
-      "startPeriod": 60
+      "startPeriod": 180
     }
   }
 ]
@@ -634,6 +632,7 @@ resource "aws_ecs_service" "backend_service" {
   task_definition = aws_ecs_task_definition.backend_task.arn
   desired_count   = 1
   launch_type     = "FARGATE"
+  health_check_grace_period_seconds = 180
   network_configuration {
     subnets          = ["subnet-004c597f51f5a111f"]       # Replace with your subnet IDs
     security_groups  = [aws_security_group.backend_sg.id] # Replace with your security group IDs
