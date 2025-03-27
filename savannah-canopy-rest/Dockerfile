@@ -14,4 +14,4 @@ COPY savannah-canopy-rest/src/main/resources/data.sql /data.sql
 ENTRYPOINT ["java","-jar","/app.jar"]
 
 # Add a health check (example)
-#HEALTHCHECK --interval=30s --timeout=10s CMD curl --fail http://localhost:8080/actuator/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s CMD curl --fail http://localhost:8080/actuator/health || exit 1
