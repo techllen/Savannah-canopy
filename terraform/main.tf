@@ -1175,3 +1175,18 @@ resource "aws_rds_cluster_instance" "aurora_cluster_instance" {
   db_subnet_group_name = aws_db_subnet_group.aurora_subnet_group.name
   publicly_accessible  = true
 }
+
+# ----------------------------------------------------------------------------------------------------------------------
+# DB Credentials
+# ----------------------------------------------------------------------------------------------------------------------
+resource "aws_secretsmanager_secret" "db_credentials" {
+  name = "db_credentials"
+}
+
+resource "aws_secretsmanager_secret_version" "db_credentials_version" {
+  secret_id     = aws_secretsmanager_secret.db_credentials.id
+  secret_string = jsonencode({
+    username = var.db_username,
+    password = var.db_password
+  })
+}
