@@ -1152,14 +1152,16 @@ resource "aws_security_group" "aurora_sg" {
 
 # Create an Aurora PostgreSQL Serverless v2 cluster
 resource "aws_rds_cluster" "aurora_cluster" {
-  cluster_identifier     = "plantstore-aurora-cluster"
-  engine                 = "aurora-postgresql"
-  engine_mode            = "provisioned"
-  engine_version         = "14.10"
-  master_username        = var.db_username
-  master_password        = var.db_password
-  db_subnet_group_name   = aws_db_subnet_group.aurora_subnet_group.name
-  vpc_security_group_ids = [aws_security_group.aurora_sg.id]
+  cluster_identifier                  = "plantstore-aurora-cluster"
+  engine                              = "aurora-postgresql"
+  engine_mode                         = "provisioned"
+  engine_version                      = "14.10"
+  master_username                     = var.db_username
+  master_password                     = var.db_password
+  db_subnet_group_name                = aws_db_subnet_group.aurora_subnet_group.name
+  vpc_security_group_ids              = [aws_security_group.aurora_sg.id]
+  iam_database_authentication_enabled = true
+  enable_http_endpoint                = true
 
   serverlessv2_scaling_configuration {
     min_capacity = 0.5 # Minimum ACUs
@@ -1174,6 +1176,7 @@ resource "aws_rds_cluster_instance" "aurora_cluster_instance" {
   engine_version       = "14.10"
   db_subnet_group_name = aws_db_subnet_group.aurora_subnet_group.name
   publicly_accessible  = true
+
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -1184,9 +1187,38 @@ resource "aws_secretsmanager_secret" "db_credentials" {
 }
 
 resource "aws_secretsmanager_secret_version" "db_credentials_version" {
-  secret_id     = aws_secretsmanager_secret.db_credentials.id
+  secret_id = aws_secretsmanager_secret.db_credentials.id
   secret_string = jsonencode({
     username = var.db_username,
     password = var.db_password
   })
+}
+
+# -----------------------------------------------------------------------------------------------------------------------
+# Connecting to DB
+# -----------------------------------------------------------------------------------------------------------------------
+resource "aws_iam_policy" "rds_connect_policy" {
+  name        = "rds-db-connect-policy"
+  path        = "/"
+  description = "Policy to allow IAM database authentication for RDS"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "rds-db:connect"
+        ]
+        Resource = [
+          "arn:aws:rds-db:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:dbuser:${aws_rds_cluster.aurora_cluster.cluster_resource_id}/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "rds_connect_attach" {
+  role       = aws_iam_role.codepipeline_role.name
+  policy_arn = aws_iam_policy.rds_connect_policy.arn
 }
