@@ -1162,6 +1162,8 @@ resource "aws_rds_cluster" "aurora_cluster" {
   vpc_security_group_ids              = [aws_security_group.aurora_sg.id]
   iam_database_authentication_enabled = true
   enable_http_endpoint                = true
+  database_name                       = "savannah_canopy_store_PG_DB"
+  skip_final_snapshot                 = true
 
   serverlessv2_scaling_configuration {
     min_capacity = 0.5 # Minimum ACUs
