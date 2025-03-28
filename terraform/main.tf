@@ -1224,3 +1224,30 @@ resource "aws_iam_role_policy_attachment" "rds_connect_attach" {
   role       = aws_iam_role.codepipeline_role.name
   policy_arn = aws_iam_policy.rds_connect_policy.arn
 }
+
+# -----------------------------------------------------------------------------------------------------------------------
+#IAM policy that allows it to access the Secrets Manager secret containing your database credentials
+# -----------------------------------------------------------------------------------------------------------------------
+resource "aws_iam_policy" "secrets_manager_access_policy" {
+  name        = "secrets-manager-access-policy"
+  description = "Policy to allow ECS tasks to access Secrets Manager"
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ],
+        Resource = [
+          aws_secretsmanager_secret.db_credentials.arn
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "secrets_manager_access_attachment" {
+  role       = aws_iam_role.ecs_tasks_execution_role.name
+  policy_arn = aws_iam_policy.secrets_manager_access_policy.arn
+}
