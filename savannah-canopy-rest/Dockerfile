@@ -1,17 +1,39 @@
+#FROM openjdk:17-jdk-alpine
+#
+#RUN pwd && ls -ltr
+#
+## Copy the JAR file to the root directory in the container
+#COPY savannah-canopy-rest/target/*.jar app.jar
+#
+## Copy application.properties to the root directory in the container
+#COPY savannah-canopy-rest/src/main/resources/application.properties /application.properties
+#
+## Copy data.sql to the root directory in the container
+#COPY savannah-canopy-rest/src/main/resources/data.sql /data.sql
+#
+#ENTRYPOINT ["java","-jar","/app.jar"]
+#
+## Add a health check (example)
+##HEALTHCHECK --interval=30s --timeout=10s CMD curl --fail http://localhost:8080/actuator/health || exit 1
+#
+#HEALTHCHECK --interval=30s --timeout=10s CMD curl -fsS http://localhost:8080/actuator/health
+#
+#EXPOSE 8080
+
 FROM openjdk:17-jdk-alpine
 
-RUN pwd && ls -ltr
+# Copy the JAR file
+COPY savannah-canopy-rest/target/*.jar /app.jar
 
-# Copy the JAR file to the root directory in the container
-COPY savannah-canopy-rest/target/*.jar app.jar
-
-# Copy application.properties to the root directory in the container
+# Copy configuration files
 COPY savannah-canopy-rest/src/main/resources/application.properties /application.properties
-
-# Copy data.sql to the root directory in the container
 COPY savannah-canopy-rest/src/main/resources/data.sql /data.sql
 
-ENTRYPOINT ["java","-jar","/app.jar"]
+# Set the entrypoint with explicit config location
+ENTRYPOINT ["java", "-jar", "/app.jar", "--spring.config.location=file:/application.properties"]
 
-# Add a health check (example)
-HEALTHCHECK --interval=30s --timeout=10s CMD curl --fail http://localhost:8080/actuator/health || exit 1
+# Health check for Spring Boot Actuator
+HEALTHCHECK --interval=30s --timeout=10s CMD curl -fsS http://localhost:8080/actuator/health
+
+# Document exposed port
+EXPOSE 8080

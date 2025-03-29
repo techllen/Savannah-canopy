@@ -564,6 +564,12 @@ resource "aws_ecs_task_definition" "backend_task" {
   cpu                      = 1024
   memory                   = 2048
   execution_role_arn       = aws_iam_role.ecs_tasks_execution_role.arn
+  task_role_arn = aws_iam_role.ecs_tasks_execution_role.arn
+
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "X86_64"
+  }
 
   container_definitions = <<DEFINITION
 [
@@ -591,6 +597,9 @@ resource "aws_ecs_task_definition" "backend_task" {
       "timeout": 10,
       "retries": 3,
       "startPeriod": 180
+    },
+    "execute_command_configuration" {
+      logging = "DEFAULT"
     }
   }
 ]
@@ -638,6 +647,9 @@ resource "aws_ecs_service" "backend_service" {
     security_groups  = [aws_security_group.backend_sg.id] # Replace with your security group IDs
     assign_public_ip = true
   }
+
+  enable_execute_command = true
+
 
   deployment_circuit_breaker {
     enable   = true
