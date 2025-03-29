@@ -480,6 +480,11 @@ resource "aws_ecr_repository" "backend_registry" {
 # ----------------------------------------------------------------------------------------------------------------------
 resource "aws_ecs_cluster" "plantstore_cluster" {
   name = var.ecs_cluster_name
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -564,46 +569,112 @@ resource "aws_ecs_task_definition" "backend_task" {
   cpu                      = 1024
   memory                   = 2048
   execution_role_arn       = aws_iam_role.ecs_tasks_execution_role.arn
-  task_role_arn = aws_iam_role.ecs_tasks_execution_role.arn
+  task_role_arn            = aws_iam_role.ecs_tasks_execution_role.arn
 
   runtime_platform {
     operating_system_family = "LINUX"
     cpu_architecture        = "X86_64"
   }
 
-  container_definitions = <<DEFINITION
-[
-  {
-    "name": "backend",
-    "image": "${local.ecr_repository_url_backend}:latest",
-    "portMappings": [
-      {
-        "containerPort": 8080,
-        "hostPort": 8080
+  container_definitions = jsonencode([
+    {
+      name : "backend",
+      image : "${local.ecr_repository_url_backend}:latest",
+      portMappings : [
+        {
+          "containerPort" : 8080,
+          "hostPort" : 8080
+        }
+      ],
+      essential : true,
+      logConfiguration : {
+        "logDriver" : "awslogs",
+        "options" : {
+          "awslogs-group" : "/ecs/backend-app",
+          "awslogs-region" : "${data.aws_region.current.name}",
+          "awslogs-stream-prefix" : "ecs"
+        }
+      },
+      healthCheck : {
+        "command" : ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health"],
+        "interval" : 30,
+        "timeout" : 10,
+        "retries" : 3,
+        "startPeriod" : 90
+      },
+      execute_command_configuration : {
+        "logging" : "DEFAULT"
       }
-    ],
-    "essential": true,
-    "logConfiguration": {
-      "logDriver": "awslogs",
-      "options": {
-        "awslogs-group": "/ecs/backend-app",
-        "awslogs-region": "${data.aws_region.current.name}",
-        "awslogs-stream-prefix": "ecs"
-      }
-    },
-    "healthCheck": {
-      "command": ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"],
-      "interval": 30,
-      "timeout": 10,
-      "retries": 3,
-      "startPeriod": 180
-    },
-    "execute_command_configuration" {
-      logging = "DEFAULT"
     }
-  }
-]
-DEFINITION
+  ])
+}
+#   container_definitions = <<DEFINITION
+# [
+#   {
+#     "name": "backend",
+#     "image": "${local.ecr_repository_url_backend}:latest",
+#     "portMappings": [
+#       {
+#         "containerPort": 8080,
+#         "hostPort": 8080
+#       }
+#     ],
+#     "essential": true,
+#     "logConfiguration": {
+#       "logDriver": "awslogs",
+#       "options": {
+#         "awslogs-group": "/ecs/backend-app",
+#         "awslogs-region": "${data.aws_region.current.name}",
+#         "awslogs-stream-prefix": "ecs"
+#       }
+#     },
+#     "healthCheck": {
+#       "command": ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health"],
+#       "interval": 30,
+#       "timeout": 10,
+#       "retries": 3,
+#       "startPeriod": 60
+#     },
+#     "execute_command_configuration" {
+#       logging:"DEFAULT"
+#     }
+#   }
+# ]
+# DEFINITION
+# }
+
+# ----------------------------------------------------------------------------------------------------------------------
+# ECS Exec Policy
+# ---------------------------------------------------------------------------------------------------------------------
+resource "aws_iam_policy" "ecs_exec_policy" {
+  name        = "ecs_exec_policy"
+  description = "Policy for ECS Exec functionality"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel",
+          "ssm:StartSession",
+          "ssm:UpdateInstanceInformation",
+          "ssm:GetConnectionStatus",
+          "ssm:sendCommand",
+          "ssm:TerminateSession"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_exec_policy_attachment" {
+  role       = aws_iam_role.ecs_tasks_execution_role.name
+  policy_arn = aws_iam_policy.ecs_exec_policy.arn
 }
 
 # # ---------------------------------------------------------------------------------------------------------------------
