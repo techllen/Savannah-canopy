@@ -343,9 +343,33 @@ resource "aws_route53_zone" "savannah_canopy_zone" {
 # }
 
 # Route 53 Record for ALB (www.savannah-canopy.com)
-resource "aws_route53_record" "www_savannah_canopy_record" {
+# resource "aws_route53_record" "www_savannah_canopy_record" {
+#   zone_id = aws_route53_zone.savannah_canopy_zone.zone_id
+#   name    = "www.savannah-canopy.com" # www subdomain
+#   type    = "A"
+#
+#   alias {
+#     name                   = aws_lb.application_load_balancer.dns_name
+#     zone_id                = aws_lb.application_load_balancer.zone_id
+#     evaluate_target_health = true
+#   }
+# }
+
+resource "aws_route53_record" "www_savannah_canopy_alias" {
   zone_id = aws_route53_zone.savannah_canopy_zone.zone_id
-  name    = "www.savannah-canopy.com" # www subdomain
+  name    = "www.savannah-canopy.com"
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.application_load_balancer.dns_name
+    zone_id                = aws_lb.application_load_balancer.zone_id
+    evaluate_target_health = true
+  }
+}
+
+resource "aws_route53_record" "savannah_canopy_alias" {
+  zone_id = aws_route53_zone.savannah_canopy_zone.zone_id
+  name    = "savannah-canopy.com"
   type    = "A"
 
   alias {
@@ -688,10 +712,12 @@ resource "aws_security_group" "backend_sg" {
 
   # Allow inbound traffic on port 8080 from anywhere
   ingress {
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    cidr_blocks     = ["0.0.0.0/0"]
+    security_groups = [aws_security_group.alb_sg.id]
+    description     = "Allow traffic from ALB on port 8080"
   }
 
   # Allow all outbound traffic
@@ -753,8 +779,14 @@ resource "aws_lb_listener_rule" "backend_listener_rule" {
   }
 
   condition {
+    host_header {
+      values = ["www.savannah-canopy.com"]
+    }
+  }
+
+  condition {
     path_pattern {
-      values = ["/sc-bk/*"]
+      values = ["/"]
     }
   }
 }
@@ -1202,3 +1234,98 @@ resource "aws_lambda_layer_version" "requests_layer" {
   filename            = "requests-layer-dependencies.zip" # file is Terraform working directory
   source_code_hash    = filebase64sha256("requests-layer-dependencies.zip")
 }
+
+# -----------------------------------------------------------------------------------------------------------------------
+# HTTPS
+# -----------------------------------------------------------------------------------------------------------------------
+resource "aws_lb_listener" "https_listener" {
+  load_balancer_arn = aws_lb.application_load_balancer.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08" # Or a more recent policy
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend_target_group.arn
+  }
+
+  certificate_arn = aws_acm_certificate.savannah_canopy_cert.arn
+}
+
+resource "aws_lb_listener_rule" "www_savannah_canopy_rule" {
+  listener_arn = aws_lb_listener.https_listener.arn
+  priority     = 10 # Choose a unique priority
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend_target_group.arn
+  }
+
+  condition {
+    host_header {
+      values = ["www.savannah-canopy.com"]
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/"]
+    }
+  }
+}
+
+resource "aws_lb_listener_rule" "savannah_canopy_redirect" {
+  listener_arn = aws_lb_listener.http_listener.arn # Assuming you have an HTTP listener
+  priority     = 20                                # Choose a unique priority
+
+  action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+      host        = "www.savannah-canopy.com"
+      path        = "/#{path}"
+      query       = "#{query}"
+    }
+  }
+
+  condition {
+    host_header {
+      values = ["savannah-canopy.com"]
+    }
+  }
+}
+
+
+resource "aws_route_table" "public_route_table" {
+  vpc_id = "vpc-085257437561e6789" # Replace with your VPC ID
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    # gateway_id = aws_internet_gateway.igw.id
+  }
+
+  tags = {
+    Name = "Public Subnet Route Table"
+  }
+}
+
+resource "aws_route_table_association" "subnet_a_association" {
+  subnet_id      = "subnet-004c597f51f5a111f"
+  route_table_id = aws_route_table.public_route_table.id
+}
+
+resource "aws_route_table_association" "subnet_b_association" {
+  subnet_id      = "subnet-015f9ef9f50348937"
+  route_table_id = aws_route_table.public_route_table.id
+}
+
+# resource "aws_internet_gateway" "igw" {
+#   vpc_id = "vpc-085257437561e6789" # Replace with your VPC ID
+#
+#   tags = {
+#     Name = "Internet Gateway"
+#   }
+# }
