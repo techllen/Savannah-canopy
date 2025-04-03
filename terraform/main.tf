@@ -5,6 +5,9 @@ data "aws_caller_identity" "current" {}
 # Fetch the current AWS region
 data "aws_region" "current" {}
 
+# Data source for availability zones
+data "aws_availability_zones" "available" {}
+
 locals {
   ecr_repository_url_backend = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com/plantstore-backend-registry"
 }
@@ -343,33 +346,9 @@ resource "aws_route53_zone" "savannah_canopy_zone" {
 # }
 
 # Route 53 Record for ALB (www.savannah-canopy.com)
-# resource "aws_route53_record" "www_savannah_canopy_record" {
-#   zone_id = aws_route53_zone.savannah_canopy_zone.zone_id
-#   name    = "www.savannah-canopy.com" # www subdomain
-#   type    = "A"
-#
-#   alias {
-#     name                   = aws_lb.application_load_balancer.dns_name
-#     zone_id                = aws_lb.application_load_balancer.zone_id
-#     evaluate_target_health = true
-#   }
-# }
-
-resource "aws_route53_record" "www_savannah_canopy_alias" {
+resource "aws_route53_record" "www_savannah_canopy_record" {
   zone_id = aws_route53_zone.savannah_canopy_zone.zone_id
-  name    = "www.savannah-canopy.com"
-  type    = "A"
-
-  alias {
-    name                   = aws_lb.application_load_balancer.dns_name
-    zone_id                = aws_lb.application_load_balancer.zone_id
-    evaluate_target_health = true
-  }
-}
-
-resource "aws_route53_record" "savannah_canopy_alias" {
-  zone_id = aws_route53_zone.savannah_canopy_zone.zone_id
-  name    = "savannah-canopy.com"
+  name    = "www.savannah-canopy.com" # www subdomain
   type    = "A"
 
   alias {
@@ -392,11 +371,12 @@ resource "aws_acm_certificate" "savannah_canopy_cert" {
 
 # Application Load Balancer (ALB)
 resource "aws_lb" "application_load_balancer" {
-  name                       = "plantstore-alb"
-  internal                   = false
-  load_balancer_type         = "application"
-  security_groups            = [aws_security_group.alb_sg.id]
-  subnets                    = ["subnet-004c597f51f5a111f", "subnet-015f9ef9f50348937"] # Replace with your subnets.Must be public
+  name               = "plantstore-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb_sg.id]
+  # subnets                    = ["subnet-004c597f51f5a111f", "subnet-015f9ef9f50348937"] # Replace with your subnets.Must be public
+  subnets                    = aws_subnet.public[*].id
   enable_deletion_protection = false
 }
 
@@ -404,7 +384,9 @@ resource "aws_lb" "application_load_balancer" {
 resource "aws_security_group" "alb_sg" {
   name        = "alb-sg"
   description = "Security group for ALB"
-  vpc_id      = "vpc-085257437561e6789" # VPC ID
+  # vpc_id      = "vpc-085257437561e6789" # VPC ID
+  vpc_id = aws_vpc.main.id
+
 
   ingress {
     from_port   = 80
@@ -414,13 +396,13 @@ resource "aws_security_group" "alb_sg" {
     description = "HTTP traffic"
   }
 
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "HTTPS traffic"
-  }
+  # ingress {
+  #   from_port   = 443
+  #   to_port     = 443
+  #   protocol    = "tcp"
+  #   cidr_blocks = ["0.0.0.0/0"]
+  #   description = "HTTPS traffic"
+  # }
 
   egress {
     from_port   = 0
@@ -432,10 +414,11 @@ resource "aws_security_group" "alb_sg" {
 
 # ALB Target Group for Backend
 resource "aws_lb_target_group" "backend_target_group" {
-  name        = "backend-tg"
-  port        = 8080
-  protocol    = "HTTP"
-  vpc_id      = "vpc-085257437561e6789" # VPC ID
+  name     = "backend-tg"
+  port     = 8080
+  protocol = "HTTP"
+  # vpc_id      = "vpc-085257437561e6789" # VPC ID
+  vpc_id      = aws_vpc.main.id
   target_type = "ip"
 
   health_check {
@@ -452,13 +435,8 @@ resource "aws_lb_listener" "http_listener" {
   protocol          = "HTTP"
 
   default_action {
-    type = "redirect"
-
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend_target_group.arn
   }
 }
 
@@ -707,8 +685,10 @@ resource "aws_iam_role_policy_attachment" "ecs_exec_policy_attachment" {
 # Security Group for Backend Service
 resource "aws_security_group" "backend_sg" {
   name        = "backend-sg"
-  description = "Security group for backend service"
-  vpc_id      = "vpc-085257437561e6789" # Replace with your VPC ID
+  description = "Security group for backend task service"
+  # vpc_id      = "vpc-085257437561e6789" # Replace with your VPC ID
+  vpc_id = aws_vpc.main.id
+
 
   # Allow inbound traffic on port 8080 from anywhere
   ingress {
@@ -717,7 +697,6 @@ resource "aws_security_group" "backend_sg" {
     protocol        = "tcp"
     cidr_blocks     = ["0.0.0.0/0"]
     security_groups = [aws_security_group.alb_sg.id]
-    description     = "Allow traffic from ALB on port 8080"
   }
 
   # Allow all outbound traffic
@@ -739,8 +718,10 @@ resource "aws_ecs_service" "backend_service" {
   desired_count                     = 1
   launch_type                       = "FARGATE"
   health_check_grace_period_seconds = 180
+
   network_configuration {
-    subnets          = ["subnet-004c597f51f5a111f"]       # Replace with your subnet IDs
+    # subnets          = ["subnet-004c597f51f5a111f"]       # Replace with your subnet IDs
+    subnets          = aws_subnet.public[*].id
     security_groups  = [aws_security_group.backend_sg.id] # Replace with your security group IDs
     assign_public_ip = true
   }
@@ -1236,96 +1217,58 @@ resource "aws_lambda_layer_version" "requests_layer" {
 }
 
 # -----------------------------------------------------------------------------------------------------------------------
-# HTTPS
+# network
 # -----------------------------------------------------------------------------------------------------------------------
-resource "aws_lb_listener" "https_listener" {
-  load_balancer_arn = aws_lb.application_load_balancer.arn
-  port              = "443"
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-2016-08" # Or a more recent policy
+# VPC and Subnets
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
 
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.backend_target_group.arn
-  }
-
-  certificate_arn = aws_acm_certificate.savannah_canopy_cert.arn
-}
-
-resource "aws_lb_listener_rule" "www_savannah_canopy_rule" {
-  listener_arn = aws_lb_listener.https_listener.arn
-  priority     = 10 # Choose a unique priority
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.backend_target_group.arn
-  }
-
-  condition {
-    host_header {
-      values = ["www.savannah-canopy.com"]
-    }
-  }
-
-  condition {
-    path_pattern {
-      values = ["/"]
-    }
+  tags = {
+    Name = "main-vpc"
   }
 }
 
-resource "aws_lb_listener_rule" "savannah_canopy_redirect" {
-  listener_arn = aws_lb_listener.http_listener.arn # Assuming you have an HTTP listener
-  priority     = 20                                # Choose a unique priority
+resource "aws_subnet" "public" {
+  count             = 2
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.${count.index}.0/24"
+  availability_zone = data.aws_availability_zones.available.names[count.index]
 
-  action {
-    type = "redirect"
-
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-      host        = "www.savannah-canopy.com"
-      path        = "/#{path}"
-      query       = "#{query}"
-    }
-  }
-
-  condition {
-    host_header {
-      values = ["savannah-canopy.com"]
-    }
+  tags = {
+    Name = "Public Subnet ${count.index + 1}"
   }
 }
 
+#-----------------------------------------------------------------------------------------------------------------------
+# internet gateway
+#-----------------------------------------------------------------------------------------------------------------------
 
-resource "aws_route_table" "public_route_table" {
-  vpc_id = "vpc-085257437561e6789" # Replace with your VPC ID
+# Internet Gateway
+resource "aws_internet_gateway" "main-igw" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "main-igw"
+  }
+}
+
+# Route Table for Public Subnets
+resource "aws_route_table" "public-route-table" {
+  vpc_id = aws_vpc.main.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    # gateway_id = aws_internet_gateway.igw.id
+    gateway_id = aws_internet_gateway.main-igw.id
   }
 
   tags = {
-    Name = "Public Subnet Route Table"
+    Name = "Public Route Table"
   }
 }
 
-resource "aws_route_table_association" "subnet_a_association" {
-  subnet_id      = "subnet-004c597f51f5a111f"
-  route_table_id = aws_route_table.public_route_table.id
+# Route Table Associations for Public Subnets
+resource "aws_route_table_association" "public-subnet-associations" {
+  count          = 2
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public-route-table.id
 }
-
-resource "aws_route_table_association" "subnet_b_association" {
-  subnet_id      = "subnet-015f9ef9f50348937"
-  route_table_id = aws_route_table.public_route_table.id
-}
-
-# resource "aws_internet_gateway" "igw" {
-#   vpc_id = "vpc-085257437561e6789" # Replace with your VPC ID
-#
-#   tags = {
-#     Name = "Internet Gateway"
-#   }
-# }
