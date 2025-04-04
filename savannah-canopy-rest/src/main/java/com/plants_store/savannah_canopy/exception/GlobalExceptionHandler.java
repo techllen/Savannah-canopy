@@ -13,8 +13,8 @@ import java.util.Map;
 public class GlobalExceptionHandler {
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    @ExceptionHandler(ApplicationStateException.class)
-    public ResponseEntity<Object> handleException(ApplicationStateException ex) {
+    @ExceptionHandler(ErrorContext.class)
+    public ResponseEntity<Object> handleException(ErrorContext ex) {
 //        // Log the full stack trace
 //        logger.error("An error occurred", ex);
 //
@@ -25,10 +25,17 @@ public class GlobalExceptionHandler {
         try {
             // Create structured JSON log
             Map<String, Object> logData = new HashMap<>();
-            logData.put("message", "An error occurred");
             logData.put("error", ex.getMessage());
-            logData.put("stackTrace", ex.getStackTrace()[0].toString());
-            logData.put("plantId", ex.getPlantId());
+//            logData.put("stackTrace", ex.getStackTrace()[0]);
+            StackTraceElement stackTraceElement = ex.getStackTrace()[0];
+            Map<String, Object> stackTrace = new HashMap<>();
+            stackTrace.put("className", stackTraceElement.getClassName());
+            stackTrace.put("methodName", stackTraceElement.getMethodName());
+            stackTrace.put("fileName", stackTraceElement.getFileName());
+            stackTrace.put("lineNumber", stackTraceElement.getLineNumber());
+
+            logData.put("stackTrace", stackTrace);
+            logData.put("applicationState(variable/object involved)", ex.getApplicationState());
 
             // Convert to JSON string
             ObjectMapper objectMapper = new ObjectMapper();

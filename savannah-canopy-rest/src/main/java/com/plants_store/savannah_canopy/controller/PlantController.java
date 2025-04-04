@@ -1,13 +1,12 @@
 package com.plants_store.savannah_canopy.controller;
 
-import com.plants_store.savannah_canopy.exception.ApplicationStateException;
+import com.plants_store.savannah_canopy.exception.ErrorContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
 import com.plants_store.savannah_canopy.model.Plant;
 import com.plants_store.savannah_canopy.service.PlantService;
@@ -39,9 +38,6 @@ public class PlantController {
     })
     public ResponseEntity<Plant> getPlant(@PathVariable Long id) {
         Plant plant = plantService.getPlantByID(id);
-        if (plant == null) {
-            throw new ApplicationStateException("Plant cannnot be found",id,null);
-        }
         logger.info("Plant retrieved successfully");
         return ResponseEntity.ok(plant);
     }

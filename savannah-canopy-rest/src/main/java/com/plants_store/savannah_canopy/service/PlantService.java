@@ -1,5 +1,6 @@
 package com.plants_store.savannah_canopy.service;
 
+import com.plants_store.savannah_canopy.exception.ErrorContext;
 import com.plants_store.savannah_canopy.model.Plant;
 import com.plants_store.savannah_canopy.repository.PlantRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +18,11 @@ public class PlantService {
 
     // Retrieve plant by id
     public Plant getPlantByID(long id){
-        return  plantRepository.findById(id).orElse(null);
+        Plant plant = plantRepository.findById(id).orElse(null);
+        if (plant == null) {
+            throw new ErrorContext("Plant cannot be found",id);
+        }
+        return  plant;
     }
 
     // Retrieve all plant products

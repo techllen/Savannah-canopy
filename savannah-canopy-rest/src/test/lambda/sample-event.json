@@ -3,7 +3,33 @@
     "data" : "{\"logEvents\":[{\"message\": \"ERROR: Something went wrong\", \"timestamp\": 1587558292000}]}"
   }
 }
+----------------------------------------------------------------------------------------------------
+{
+  "stackTrace": {
+    "fileName": "PlantService.java",
+    "methodName": "getPlantByID",
+    "className": "com.plants_store.savannah_canopy.service.PlantService",
+    "lineNumber": 23
+  },
+  "error": "Plant cannot be found",
+  "applicationState(variable/object involved)": 67899
+}
 
+{
+  "stackTrace": {
+    "fileName": "DiscountService.java",
+    "methodName": "calculateDiscount",
+    "className": "com.plants_store.savannah_canopy.service.DiscountService",
+    "lineNumber": 37
+  },
+  "error": "Error while applying discount",
+  "applicationState(variable/object involved)": {
+    "price": 15.99,
+    "percentage": 0,
+    "plantId": 1
+  }
+}
+----------------------------------------------------------------------------------------------------
 {
   "plantId" : 567 ,
   "stackTrace" : [
