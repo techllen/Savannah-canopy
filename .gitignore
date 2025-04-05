@@ -46,3 +46,10 @@ terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
 
 terraform/requests-layer
+
+# Ignore all files and directories directly inside savannah-canopy/lambda/
+savannah-canopy/lambda/*
+
+# Now, specifically UN-ignore the directories we want to keep
+!savannah-canopy/lambda/testing/
+!savannah-canopy/lambda/lambda_functions/
