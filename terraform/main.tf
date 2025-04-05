@@ -5,6 +5,9 @@ data "aws_caller_identity" "current" {}
 # Fetch the current AWS region
 data "aws_region" "current" {}
 
+# Data source for availability zones
+data "aws_availability_zones" "available" {}
+
 locals {
   ecr_repository_url_backend = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com/plantstore-backend-registry"
 }
@@ -368,11 +371,12 @@ resource "aws_acm_certificate" "savannah_canopy_cert" {
 
 # Application Load Balancer (ALB)
 resource "aws_lb" "application_load_balancer" {
-  name                       = "plantstore-alb"
-  internal                   = false
-  load_balancer_type         = "application"
-  security_groups            = [aws_security_group.alb_sg.id]
-  subnets                    = ["subnet-004c597f51f5a111f", "subnet-015f9ef9f50348937"] # Replace with your subnets.Must be public
+  name               = "plantstore-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb_sg.id]
+  # subnets                    = ["subnet-004c597f51f5a111f", "subnet-015f9ef9f50348937"] # Replace with your subnets.Must be public
+  subnets                    = aws_subnet.public[*].id
   enable_deletion_protection = false
 }
 
@@ -380,7 +384,9 @@ resource "aws_lb" "application_load_balancer" {
 resource "aws_security_group" "alb_sg" {
   name        = "alb-sg"
   description = "Security group for ALB"
-  vpc_id      = "vpc-085257437561e6789" # VPC ID
+  # vpc_id      = "vpc-085257437561e6789" # VPC ID
+  vpc_id = aws_vpc.main.id
+
 
   ingress {
     from_port   = 80
@@ -390,13 +396,13 @@ resource "aws_security_group" "alb_sg" {
     description = "HTTP traffic"
   }
 
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "HTTPS traffic"
-  }
+  # ingress {
+  #   from_port   = 443
+  #   to_port     = 443
+  #   protocol    = "tcp"
+  #   cidr_blocks = ["0.0.0.0/0"]
+  #   description = "HTTPS traffic"
+  # }
 
   egress {
     from_port   = 0
@@ -408,14 +414,15 @@ resource "aws_security_group" "alb_sg" {
 
 # ALB Target Group for Backend
 resource "aws_lb_target_group" "backend_target_group" {
-  name        = "backend-tg"
-  port        = 8080
-  protocol    = "HTTP"
-  vpc_id      = "vpc-085257437561e6789" # VPC ID
+  name     = "backend-tg"
+  port     = 8080
+  protocol = "HTTP"
+  # vpc_id      = "vpc-085257437561e6789" # VPC ID
+  vpc_id      = aws_vpc.main.id
   target_type = "ip"
 
   health_check {
-    path     = "/api/payment/health" #  backend healthcheck path
+    path     = "/actuator/health" #  backend healthcheck path
     protocol = "HTTP"
     port     = 8080
   }
@@ -428,13 +435,8 @@ resource "aws_lb_listener" "http_listener" {
   protocol          = "HTTP"
 
   default_action {
-    type = "redirect"
-
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend_target_group.arn
   }
 }
 
@@ -480,6 +482,11 @@ resource "aws_ecr_repository" "backend_registry" {
 # ----------------------------------------------------------------------------------------------------------------------
 resource "aws_ecs_cluster" "plantstore_cluster" {
   name = var.ecs_cluster_name
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -561,42 +568,115 @@ resource "aws_ecs_task_definition" "backend_task" {
   family                   = "backend-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = 256
-  memory                   = 512
+  cpu                      = 1024
+  memory                   = 2048
   execution_role_arn       = aws_iam_role.ecs_tasks_execution_role.arn
+  task_role_arn            = aws_iam_role.ecs_tasks_execution_role.arn
 
-  container_definitions = <<DEFINITION
-[
-  {
-    "name": "backend",
-    "image": "${local.ecr_repository_url_backend}:latest",
-    "portMappings": [
-      {
-        "containerPort": 8080,
-        "hostPort": 8080
-      }
-    ],
-    "essential": true,
-    "logConfiguration": {
-      "logDriver": "awslogs",
-      "options": {
-        "awslogs-group": "/ecs/backend-app",
-        "awslogs-region": "${data.aws_region.current.name}",
-        "awslogs-stream-prefix": "ecs"
-      }
-    },
-    "startCount": 1,
-    "failureThreshold": 3,
-    "healthCheck": {
-      "command": ["CMD-SHELL", "curl -f http://localhost:8080/api/payment/health || exit 1"],
-      "interval": 30,
-      "timeout": 5,
-      "retries": 3,
-      "startPeriod": 60
-    }
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "X86_64"
   }
-]
-DEFINITION
+
+  container_definitions = jsonencode([
+    {
+      name : "backend",
+      image : "${local.ecr_repository_url_backend}:latest",
+      portMappings : [
+        {
+          "containerPort" : 8080,
+          "hostPort" : 8080
+        }
+      ],
+      essential : true,
+      logConfiguration : {
+        "logDriver" : "awslogs",
+        "options" : {
+          "awslogs-group" : "/ecs/backend-app",
+          "awslogs-region" : "${data.aws_region.current.name}",
+          "awslogs-stream-prefix" : "ecs"
+        }
+      },
+      healthCheck : {
+        "command" : ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health"],
+        "interval" : 30,
+        "timeout" : 10,
+        "retries" : 3,
+        "startPeriod" : 90
+      },
+      execute_command_configuration : {
+        "logging" : "DEFAULT"
+      }
+    }
+  ])
+}
+#   container_definitions = <<DEFINITION
+# [
+#   {
+#     "name": "backend",
+#     "image": "${local.ecr_repository_url_backend}:latest",
+#     "portMappings": [
+#       {
+#         "containerPort": 8080,
+#         "hostPort": 8080
+#       }
+#     ],
+#     "essential": true,
+#     "logConfiguration": {
+#       "logDriver": "awslogs",
+#       "options": {
+#         "awslogs-group": "/ecs/backend-app",
+#         "awslogs-region": "${data.aws_region.current.name}",
+#         "awslogs-stream-prefix": "ecs"
+#       }
+#     },
+#     "healthCheck": {
+#       "command": ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health"],
+#       "interval": 30,
+#       "timeout": 10,
+#       "retries": 3,
+#       "startPeriod": 60
+#     },
+#     "execute_command_configuration" {
+#       logging:"DEFAULT"
+#     }
+#   }
+# ]
+# DEFINITION
+# }
+
+# ----------------------------------------------------------------------------------------------------------------------
+# ECS Exec Policy
+# ---------------------------------------------------------------------------------------------------------------------
+resource "aws_iam_policy" "ecs_exec_policy" {
+  name        = "ecs_exec_policy"
+  description = "Policy for ECS Exec functionality"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel",
+          "ssm:StartSession",
+          "ssm:UpdateInstanceInformation",
+          "ssm:GetConnectionStatus",
+          "ssm:sendCommand",
+          "ssm:TerminateSession"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_exec_policy_attachment" {
+  role       = aws_iam_role.ecs_tasks_execution_role.name
+  policy_arn = aws_iam_policy.ecs_exec_policy.arn
 }
 
 # # ---------------------------------------------------------------------------------------------------------------------
@@ -605,15 +685,18 @@ DEFINITION
 # Security Group for Backend Service
 resource "aws_security_group" "backend_sg" {
   name        = "backend-sg"
-  description = "Security group for backend service"
-  vpc_id      = "vpc-085257437561e6789" # Replace with your VPC ID
+  description = "Security group for backend task service"
+  # vpc_id      = "vpc-085257437561e6789" # Replace with your VPC ID
+  vpc_id = aws_vpc.main.id
+
 
   # Allow inbound traffic on port 8080 from anywhere
   ingress {
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    cidr_blocks     = ["0.0.0.0/0"]
+    security_groups = [aws_security_group.alb_sg.id]
   }
 
   # Allow all outbound traffic
@@ -629,15 +712,26 @@ resource "aws_security_group" "backend_sg" {
 # # ECS Services
 # # ---------------------------------------------------------------------------------------------------------------------
 resource "aws_ecs_service" "backend_service" {
-  name            = var.ecs_service_name_backend
-  cluster         = aws_ecs_cluster.plantstore_cluster.id
-  task_definition = aws_ecs_task_definition.backend_task.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
+  name                              = var.ecs_service_name_backend
+  cluster                           = aws_ecs_cluster.plantstore_cluster.id
+  task_definition                   = aws_ecs_task_definition.backend_task.arn
+  desired_count                     = 1
+  launch_type                       = "FARGATE"
+  health_check_grace_period_seconds = 180
+
   network_configuration {
-    subnets          = ["subnet-004c597f51f5a111f"]       # Replace with your subnet IDs
+    # subnets          = ["subnet-004c597f51f5a111f"]       # Replace with your subnet IDs
+    subnets          = aws_subnet.public[*].id
     security_groups  = [aws_security_group.backend_sg.id] # Replace with your security group IDs
     assign_public_ip = true
+  }
+
+  enable_execute_command = true
+
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
   }
 
   load_balancer {
@@ -645,6 +739,10 @@ resource "aws_ecs_service" "backend_service" {
     container_name   = "backend"
     container_port   = 8080
   }
+
+  # Controlling number of tasks deployed
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 100
 
   depends_on = [
     aws_lb_target_group.backend_target_group,
@@ -662,8 +760,14 @@ resource "aws_lb_listener_rule" "backend_listener_rule" {
   }
 
   condition {
+    host_header {
+      values = ["www.savannah-canopy.com"]
+    }
+  }
+
+  condition {
     path_pattern {
-      values = ["/sc-bk/*"]
+      values = ["/"]
     }
   }
 }
@@ -714,22 +818,7 @@ resource "aws_codepipeline" "plantstore_pipeline" {
       source_action_name = "GitHub_Source"
       push {
         branches {
-          includes = ["*"]
-        }
-        file_paths {
-          includes = ["*"]
-        }
-        tags {
-          includes = ["*"]
-        }
-      }
-      pull_request {
-        events = ["OPEN", "CLOSED"]
-        branches {
-          includes = ["*"]
-        }
-        file_paths {
-          includes = ["*"]
+          includes = ["feature/backend", "main"]
         }
       }
     }
@@ -775,7 +864,7 @@ resource "aws_codepipeline" "plantstore_pipeline" {
       configuration = {
         ConnectionArn    = aws_codestarconnections_connection.github_connection.arn
         FullRepositoryId = "${var.github_repo_owner}/${var.github_repo_name}"
-        BranchName       = "main"
+        BranchName       = "feature/backend"
       }
     }
   }
@@ -1125,4 +1214,61 @@ resource "aws_lambda_layer_version" "requests_layer" {
   compatible_runtimes = ["python3.9"]
   filename            = "requests-layer-dependencies.zip" # file is Terraform working directory
   source_code_hash    = filebase64sha256("requests-layer-dependencies.zip")
+}
+
+# -----------------------------------------------------------------------------------------------------------------------
+# network
+# -----------------------------------------------------------------------------------------------------------------------
+# VPC and Subnets
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+
+  tags = {
+    Name = "main-vpc"
+  }
+}
+
+resource "aws_subnet" "public" {
+  count             = 2
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.${count.index}.0/24"
+  availability_zone = data.aws_availability_zones.available.names[count.index]
+
+  tags = {
+    Name = "Public Subnet ${count.index + 1}"
+  }
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# internet gateway
+#-----------------------------------------------------------------------------------------------------------------------
+
+# Internet Gateway
+resource "aws_internet_gateway" "main-igw" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "main-igw"
+  }
+}
+
+# Route Table for Public Subnets
+resource "aws_route_table" "public-route-table" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main-igw.id
+  }
+
+  tags = {
+    Name = "Public Route Table"
+  }
+}
+
+# Route Table Associations for Public Subnets
+resource "aws_route_table_association" "public-subnet-associations" {
+  count          = 2
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public-route-table.id
 }

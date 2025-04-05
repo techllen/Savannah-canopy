@@ -1,5 +1,6 @@
 package com.plants_store.savannah_canopy.controller;
 
+import com.plants_store.savannah_canopy.exception.ErrorContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -37,12 +38,26 @@ public class PlantController {
     })
     public ResponseEntity<Plant> getPlant(@PathVariable Long id) {
         Plant plant = plantService.getPlantByID(id);
-        if (plant == null) {
-            throw new IllegalArgumentException("Plant cannnot be found");
-        }
         logger.info("Plant retrieved successfully");
         return ResponseEntity.ok(plant);
     }
+
+//    public ResponseEntity<Plant> getPlant(@PathVariable Long id) {
+//        MDC.put("plantId", id.toString()); // Log the plant ID
+//        try {
+//            Plant plant = plantService.getPlantByID(id);
+//            if (plant == null) {
+//                throw new IllegalArgumentException("Plant cannnot be found");
+//            }
+//            logger.info("Plant retrieved successfully");
+//            return ResponseEntity.ok(plant);
+//        } catch (Exception ex) {
+//            logger.error("An error occurred while processing the request", ex); //pass the exception object as a parameter to the logger to capture the complete stack trace
+//            throw ex;
+//        } finally {
+//            MDC.clear();
+//        }
+//    }
 
     @GetMapping("/plants")
     @Operation(summary = "Get all plants", description = "Retrieves all plants")

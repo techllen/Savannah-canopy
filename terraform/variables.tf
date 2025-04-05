@@ -50,3 +50,15 @@ variable "bedrock_model_id" {
   type        = string
   default     = "mistral.mistral-7b-instruct-v0:2" # Default model
 }
+
+# database
+variable "db_username" {
+  description = "Database username"
+  type        = string
+}
+
+variable "db_password" {
+  description = "Database password"
+  type        = string
+  sensitive   = true
+}
