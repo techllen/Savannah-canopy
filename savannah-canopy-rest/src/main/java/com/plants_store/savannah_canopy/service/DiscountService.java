@@ -25,9 +25,11 @@ public class DiscountService {
         if (plant == null) {
             throw new ErrorContext("Error while applying discount", plantId);
         }
-// Intentional division by zero error
+        if (percentage == 0) {
+            throw new ErrorContext("Cannot apply zero discount");
+        }
         try {
-            double discountAmount = plant.getPrice() / (double)( 100 / percentage);
+            double discountAmount = plant.getPrice() / (double)100.0 * percentage;
             return plant.getPrice() - discountAmount;
         } catch (Exception e) {
             Map<String, Object> state = new HashMap<>();
@@ -36,5 +38,4 @@ public class DiscountService {
             state.put("price", plant.getPrice());
             throw new ErrorContext("Error while applying discount", state);
         }
-    }
-}
+    }}
