@@ -41,7 +41,7 @@ terraform/.terraform/providers/**/terraform-provider-aws_*_x5.exe
 
 terraform/terraform.tfvars
 
-terraform/terraform.tfstate
+terraform/terraform.tfstate.*
 
 terraform/terraform.tfstate.backup
 
