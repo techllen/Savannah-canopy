@@ -1272,3 +1272,202 @@ resource "aws_route_table_association" "public-subnet-associations" {
   subnet_id      = aws_subnet.public[count.index].id
   route_table_id = aws_route_table.public-route-table.id
 }
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Test CodePipeline
+# ---------------------------------------------------------------------------------------------------------------------
+
+resource "aws_codepipeline" "plantstore_pipeline_test" {
+  name     = "plantstore-pipeline-test"
+  role_arn = aws_iam_role.codepipeline_role.arn
+
+  depends_on = [
+    aws_codestarconnections_connection.github_connection,
+    aws_iam_role_policy.codepipeline_connection_policy
+  ]
+
+  # --------------------------------------------------------------------------------------------------------------------
+  # trigger the pipeline for any push or pull request event on the feature/test branch
+  # --------------------------------------------------------------------------------------------------------------------
+  trigger {
+    provider_type = "CodeStarSourceConnection"
+    git_configuration {
+      source_action_name = "GitHub_Source"
+      push {
+        branches {
+          includes = ["feature/test"]
+        }
+      }
+      #for pull_request triggers for merges into feature/test
+      pull_request {
+        events = ["OPEN", "REOPEN", "SYNCHRONIZE"] # Trigger on PR creation/update
+        branches {
+           includes = ["feature/test"]
+        }
+      }
+    }
+  }
+
+  artifact_store {
+    location = aws_s3_bucket.codepipeline_bucket.id # Reusing the same bucket
+    type     = "S3"
+  }
+
+  pipeline_type = "V2" # Reusing V2
+
+  stage {
+    name = "Source"
+
+    action {
+      name             = "GitHub_Source" # Action name within this pipeline
+      category         = "Source"
+      owner            = "AWS"
+      provider         = "CodeStarSourceConnection"
+      version          = "1"
+      output_artifacts = ["source_output_test"] # Use a distinct artifact name
+      configuration = {
+        ConnectionArn    = aws_codestarconnections_connection.github_connection.arn # Reusing the connection
+        FullRepositoryId = "${var.github_repo_owner}/${var.github_repo_name}" # Same repo
+        BranchName       = "feature/test" #Pointing to the test branch
+      }
+    }
+  }
+
+  stage {
+    name = "Build_backend_test"
+
+    action {
+      name             = "Backend_Build_test"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      input_artifacts  = ["source_output_test"] # Match output artifact from Source stage
+      output_artifacts = ["backend_build_output_test"] # Distinct build output artifact name
+      version          = "1"
+      configuration = {
+        #Point to the existing build project.
+        ProjectName = aws_codebuild_project.backend_build.name
+      }
+    }
+  }
+
+  stage {
+    name = "Deploy_backend_test"
+
+    action {
+      name            = "Deploy_to_ECS_backend_test"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "ECS"
+      input_artifacts = ["backend_build_output_test"]
+      version         = "1"
+      configuration = {
+        ClusterName = aws_ecs_cluster.plantstore_cluster.name # Same cluster as production
+        ServiceName = aws_ecs_service.backend_service_test.name # using the test service
+        FileName    = "imagedefinitions-backend.json"
+      }
+    }
+  }
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# ECS Service for Testing
+# ---------------------------------------------------------------------------------------------------------------------
+resource "aws_ecs_service" "backend_service_test" {
+  # Use a distinct name for the test service
+  name                              = "${var.ecs_service_name_backend}-test" # Use a distinct name
+  cluster                           = aws_ecs_cluster.plantstore_cluster.id  # Same cluster
+  task_definition                   = aws_ecs_task_definition.backend_task.arn # Same task definition as production
+  desired_count                     = 1
+  launch_type                       = "FARGATE"
+  health_check_grace_period_seconds = 180
+
+  network_configuration {
+    subnets          = aws_subnet.public[*].id
+    security_groups  = [aws_security_group.backend_sg.id] # Reuse existing SG (ensure it allows access for testing)
+    assign_public_ip = true #
+  }
+
+  enable_execute_command = true
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 100
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.backend_target_group_test.arn # Point to the NEW test TG
+    container_name   = "backend" # Match container name in task definition
+    container_port   = 8080
+  }
+
+  depends_on = [aws_lb_target_group.backend_target_group_test]
+  # }
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# New Target Group for Test
+# ---------------------------------------------------------------------------------------------------------------------
+resource "aws_lb_target_group" "backend_target_group_test" {
+  name     = "backend-tg-test" # Distinct name
+  port     = 8080
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+  target_type = "ip"
+
+  health_check {
+    path     = "/actuator/health"
+    protocol = "HTTP"
+    port     = 8080
+  }
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Listener Rule for Test
+# ---------------------------------------------------------------------------------------------------------------------
+resource "aws_lb_listener_rule" "backend_listener_rule_test" {
+  listener_arn = aws_lb_listener.http_listener.arn
+  priority     = 15
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend_target_group_test.arn # Forward to the NEW test TG
+  }
+
+  condition {
+    path_pattern {
+      values = ["/test/*"]
+    }
+  }
+
+  condition {
+    host_header {
+      values = ["www.savannah-canopy.com"]
+    }
+  }
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Test DNS Record - OPTIOANL
+# ---------------------------------------------------------------------------------------------------------------------
+# resource "aws_route53_record" "backend_test_record" {
+#   zone_id = aws_route53_zone.savannah_canopy_zone.zone_id
+#   name    = "backend-test.savannah-canopy.com" # Use a distinct name
+#   type    = "A"
+#   alias {
+#     name                   = aws_lb.application_load_balancer.dns_name
+#     zone_id                = aws_lb.application_load_balancer.zone_id
+#     evaluate_target_health = true
+#   }
+# }
+#
+# resource "aws_route53_record" "test_savannah_canopy_record" {
+#   zone_id = aws_route53_zone.savannah_canopy_zone.zone_id
+#   name    = "test.savannah-canopy.com" # The test subdomain
+#   type    = "CNAME"
+#   ttl     = 300
+#   records = [aws_lb.application_load_balancer.dns_name] # Point to the ALB DNS
+# }
