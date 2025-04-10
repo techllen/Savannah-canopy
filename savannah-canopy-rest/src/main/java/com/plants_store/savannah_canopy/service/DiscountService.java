@@ -35,4 +35,5 @@ public class DiscountService {
             state.put("price", plant.getPrice());
             throw new ErrorContext("Error while applying discount", state);
         }
-    }}
+    }
+}
