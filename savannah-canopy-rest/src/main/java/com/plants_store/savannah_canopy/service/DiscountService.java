@@ -26,7 +26,7 @@ public class DiscountService {
             throw new ErrorContext("Error while applying discount", plantId);
         }
         if (percentage == 0) {
-            throw new ErrorContext("Cannot apply discount of zero percentage");
+            throw new IllegalArgumentException("Percentage cannot be zero");
         }
         try {
             double discountAmount = plant.getPrice() / (double)( 100 / percentage);
