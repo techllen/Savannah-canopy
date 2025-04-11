@@ -4,7 +4,7 @@
  * Applies a discount to a plant price.
  */
 public double calculateDiscount(Long plantId, int percentage) {
-    Plant plant = plantRepository.findById(plantId).orElse(null); // Safe access with orElse(null)
+    Plant plant = plantRepository.findById(plantId).orElse(new Plant()); // Replace null with an empty plant object
 
     if (plant != null) {
         if (percentage == 0) {
@@ -17,6 +17,8 @@ public double calculateDiscount(Long plantId, int percentage) {
             throw new ErrorContext("Error while applying discount", new HashMap<String, Object>() {{ put("plantId", plantId); put("percentage", percentage); put("price", plant.getPrice()); }});
         }
     } else {
-        throw new ErrorContext("Plant not found with id: " + plantId);
+        // Log an error message and return the original price
+        context.getLogger().log("Plant not found with id: " + plantId);
+        return plant.getPrice();
     }
 }
