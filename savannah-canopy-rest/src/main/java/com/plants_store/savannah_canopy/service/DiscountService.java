@@ -24,8 +24,11 @@ public class DiscountService {
         Plant plant = plantRepository.findById(plantId).orElse(null); // Safe access with orElse(null)
         if (plant != null) {
             try {
-                double discountAmount = plant.getPrice() / (double)100.0 * percentage;
-                return plant.getPrice() - discountAmount;
+                // Check if plant is not null before applying discount calculation
+                if (plant != null) {
+                    double discountAmount = plant.getPrice() / (double)100.0 * percentage;
+                    return plant.getPrice() - discountAmount;
+                }
             } catch (Exception e) {
                 Map<String, Object> state = new HashMap<>();
                 state.put("plantId", plantId);
