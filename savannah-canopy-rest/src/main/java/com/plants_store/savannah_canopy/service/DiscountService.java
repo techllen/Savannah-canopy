@@ -26,10 +26,10 @@ public class DiscountService {
             throw new ErrorContext("Error while applying discount", plantId);
         }
         if (percentage == 0) {
-            throw new ErrorContext("Cannot apply discount of 0%.");
+            throw new ErrorContext("Cannot apply zero percentage discount");
         }
         try {
-            double discountAmount = plant.getPrice() / (double)( 100 / percentage);
+            double discountAmount = plant.getPrice() / (double)100.0 * percentage;
             return plant.getPrice() - discountAmount;
         } catch (Exception e) {
             Map<String, Object> state = new HashMap<>();
