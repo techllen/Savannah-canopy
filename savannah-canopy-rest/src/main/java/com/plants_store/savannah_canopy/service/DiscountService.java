@@ -17,8 +17,7 @@ public double calculateDiscount(Long plantId, int percentage) {
             throw new ErrorContext("Error while applying discount", new HashMap<String, Object>() {{ put("plantId", plantId); put("percentage", percentage); put("price", plant.getPrice()); }});
         }
     } else {
-        // Log an error message and return the original price
         context.getLogger().log("Plant not found with id: " + plantId);
-        return plant.getPrice();
-    } // Added null check
+        return plant.getPrice(); // Return original price if plant is null
+    }
 }
