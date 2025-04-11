@@ -20,5 +20,5 @@ public double calculateDiscount(Long plantId, int percentage) {
         // Log an error message and return the original price
         context.getLogger().log("Plant not found with id: " + plantId);
         return plant.getPrice();
-    }
+    } // Added null check
 }
