@@ -25,8 +25,8 @@ public class DiscountService {
         if (plant == null) {
             throw new ErrorContext("Error while applying discount", plantId);
         }
-        if (percentage == 0) {
-            throw new IllegalArgumentException("Percentage cannot be zero");
+        if (plant.getPrice() == 0 || percentage == 0) {
+            throw new ErrorContext("Error while applying discount: Division by zero error");
         }
         try {
             double discountAmount = plant.getPrice() / (double)( 100 / percentage);
@@ -38,4 +38,5 @@ public class DiscountService {
             state.put("price", plant.getPrice());
             throw new ErrorContext("Error while applying discount", state);
         }
-    }}
+    }
+}
