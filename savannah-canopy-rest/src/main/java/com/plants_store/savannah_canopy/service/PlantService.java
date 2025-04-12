@@ -1,37 +1,37 @@
-package com.plants_store.savannah_canopy.service;
-
-import com.plants_store.savannah_canopy.exception.ErrorContext;
-import com.plants_store.savannah_canopy.model.Plant;
-import com.plants_store.savannah_canopy.repository.PlantRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
-
-/**
- * Service layer for handling plant-related operations.
- */
-@Service
-public class PlantService {
-    @Autowired
-    private PlantRepository plantRepository;
-
-    // Retrieve plant by id
-    public Plant getPlantByID(long id){
-        Plant plant = plantRepository.findById(id); // Get plant from repository
-        if (plant == null) {
-            throw new ErrorContext("Plant cannot be found", id);
-        }
-        return plant; // Return non-null plant
-    } // Added null check before returning plant
-
-    // Retrieve all plant products
-    public List<Plant> getAllPlants() {
-        return plantRepository.findAll();
-    }
-
-    // Save a plant product
-    public Plant savePlant(Plant plant) {
-        return plantRepository.save(plant);
-    }
+package com.plants_store.savannah_canopy.service; 
+ 
+import com.plants_store.savannah_canopy.exception.ErrorContext; 
+import com.plants_store.savannah_canopy.model.Plant; 
+import com.plants_store.savannah_canopy.repository.PlantRepository; 
+import org.springframework.beans.factory.annotation.Autowired; 
+import org.springframework.stereotype.Service; 
+ 
+import java.util.List; 
+ 
+/** 
+ * Service layer for handling plant-related operations. 
+ */ 
+@Service 
+public class PlantService { 
+    @Autowired 
+    private PlantRepository plantRepository; 
+ 
+    // Retrieve plant by id 
+    public Plant getPlantByID(long id){ 
+        Plant plant = plantRepository.findById(id).orElse(null); 
+        if (plant == null) { 
+            throw new ErrorContext("Plant cannot be found",id); 
+        } 
+        return  plant; 
+    } 
+ 
+    // Retrieve all plant products 
+    public List<Plant> getAllPlants() { 
+        return plantRepository.findAll(); 
+    } 
+ 
+    // Save a plant product 
+    public Plant savePlant(Plant plant) { 
+        return plantRepository.save(plant); 
+    } 
 }
