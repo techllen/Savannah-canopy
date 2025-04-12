@@ -1,23 +1,41 @@
-...
+package com.plants_store.savannah_canopy.service;
+
+import com.plants_store.savannah_canopy.exception.ErrorContext;
+import com.plants_store.savannah_canopy.model.Plant;
+import com.plants_store.savannah_canopy.repository.PlantRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * Applies a discount to a plant price.
+ * Service layer for handling discount calculations.
  */
-public double calculateDiscount(Long plantId, int percentage) {
-    Plant plant = plantRepository.findById(plantId).orElse(new Plant()); // Replace null with an empty plant object
+@Service
+public class DiscountService {
+    @Autowired
+    private PlantRepository plantRepository;
 
-    if (plant != null) {
+    /**
+     * Applies a discount to a plant price.
+     */
+    public double calculateDiscount(Long plantId, int percentage) {
+        Plant plant = plantRepository.findById(plantId).orElse(null);
+        if (plant == null) {
+            throw new ErrorContext("Error while applying discount", plantId);
+        }
         if (percentage == 0) {
-            throw new IllegalArgumentException("Percentage cannot be zero");
+            throw new ErrorContext("Error: Cannot apply zero discount.");
         }
         try {
             double discountAmount = plant.getPrice() / (double)( 100 / percentage);
             return plant.getPrice() - discountAmount;
         } catch (Exception e) {
-            throw new ErrorContext("Error while applying discount", new HashMap<String, Object>() {{ put("plantId", plantId); put("percentage", percentage); put("price", plant != null ? plant.getPrice() : 0.0); }});
+            Map<String, Object> state = new HashMap<>();
+            state.put("plantId", plantId);
+            state.put("percentage", percentage);
+            state.put("price", plant.getPrice());
+            throw new ErrorContext("Error while applying discount", state);
         }
-    } else {
-        context.getLogger().log("Plant not found with id: " + plantId);
-        return plant != null ? plant.getPrice() : 0.0; // Return original price if plant is null
-    }
-}
+    }}
