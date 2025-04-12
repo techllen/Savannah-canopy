@@ -25,8 +25,11 @@ public class DiscountService {
         if (plant == null) {
             throw new ErrorContext("Error while applying discount", plantId);
         }
+        if (plant.getPrice() == 0 || percentage == 0) {
+            throw new ErrorContext("Error while applying discount: Division by zero error");
+        }
         try {
-            double discountAmount = plant.getPrice() / (double)100.0 * percentage;
+            double discountAmount = plant.getPrice() / (double)( 100 / percentage);
             return plant.getPrice() - discountAmount;
         } catch (Exception e) {
             Map<String, Object> state = new HashMap<>();

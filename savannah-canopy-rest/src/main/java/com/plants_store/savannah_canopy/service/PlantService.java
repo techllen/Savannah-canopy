@@ -18,12 +18,12 @@ public class PlantService {
 
     // Retrieve plant by id
     public Plant getPlantByID(long id){
-        Plant plant = plantRepository.findById(id).orElse(null);
+        Plant plant = plantRepository.findById(id); // Get plant from repository
         if (plant == null) {
-            throw new ErrorContext("Plant cannot be found",id);
+            throw new ErrorContext("Plant cannot be found", id);
         }
-        return  plant;
-    }
+        return plant; // Return non-null plant
+    } // Added null check before returning plant
 
     // Retrieve all plant products
     public List<Plant> getAllPlants() {
@@ -35,4 +35,3 @@ public class PlantService {
         return plantRepository.save(plant);
     }
 }
-
