@@ -222,29 +222,6 @@ resource "aws_iam_role_policy" "codebuild_logs_policy" {
 EOF
 }
 
-# ---------------------------------------------------------------------------------------------------------------------
-# # Inline policy to allow CodePipeline to use the CodeStar Connection
-# ---------------------------------------------------------------------------------------------------------------------
-# resource "aws_iam_role_policy" "codepipeline_connection_policy" {
-#   name = "codepipeline-connection-policy"
-#   role = aws_iam_role.codepipeline_role.id
-#
-#   policy = jsonencode({
-#     Version = "2012-10-17"
-#     Statement = [
-#       {
-#         Effect = "Allow"
-#         Action = [
-#           "codestar-connections:UseConnection"
-#         ]
-#         Resource = [
-#           aws_codestarconnections_connection.github_connection.arn
-#         ]
-#       }
-#     ]
-#   })
-# }
-
 resource "aws_iam_role_policy" "codepipeline_connection_policy" {
   name = "codepipeline-connection-policy"
   role = aws_iam_role.codepipeline_role.id
@@ -258,7 +235,8 @@ resource "aws_iam_role_policy" "codepipeline_connection_policy" {
           "codestar-connections:UseConnection"
         ]
         Resource = [
-          aws_codestarconnections_connection.github_connection.arn
+          aws_codestarconnections_connection.github_connection.arn,
+          "arn:aws:codeconnections:us-east-1:539247457480:connection/4330607b-4aae-4812-ae7b-22b2375b28f6"
         ]
       },
       {
@@ -331,20 +309,6 @@ resource "aws_route53_zone" "savannah_canopy_zone" {
   name = "savannah-canopy.com" # domain name
 }
 
-# Configure Route 53 A Records to Point to the ALB
-# Route 53 Record for ALB (savannah-canopy.com)
-# resource "aws_route53_record" "savannah_canopy_record" {
-#   zone_id = aws_route53_zone.savannah_canopy_zone.zone_id
-#   name    = "savannah-canopy.com" # domain name
-#   type    = "A"
-#
-#   alias {
-#     name                   = aws_lb.application_load_balancer.dns_name
-#     zone_id                = aws_lb.application_load_balancer.zone_id
-#     evaluate_target_health = true
-#   }
-# }
-
 # Route 53 Record for ALB (www.savannah-canopy.com)
 resource "aws_route53_record" "www_savannah_canopy_record" {
   zone_id = aws_route53_zone.savannah_canopy_zone.zone_id
@@ -395,14 +359,6 @@ resource "aws_security_group" "alb_sg" {
     cidr_blocks = ["0.0.0.0/0"]
     description = "HTTP traffic"
   }
-
-  # ingress {
-  #   from_port   = 443
-  #   to_port     = 443
-  #   protocol    = "tcp"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  #   description = "HTTPS traffic"
-  # }
 
   egress {
     from_port   = 0
@@ -610,40 +566,6 @@ resource "aws_ecs_task_definition" "backend_task" {
     }
   ])
 }
-#   container_definitions = <<DEFINITION
-# [
-#   {
-#     "name": "backend",
-#     "image": "${local.ecr_repository_url_backend}:latest",
-#     "portMappings": [
-#       {
-#         "containerPort": 8080,
-#         "hostPort": 8080
-#       }
-#     ],
-#     "essential": true,
-#     "logConfiguration": {
-#       "logDriver": "awslogs",
-#       "options": {
-#         "awslogs-group": "/ecs/backend-app",
-#         "awslogs-region": "${data.aws_region.current.name}",
-#         "awslogs-stream-prefix": "ecs"
-#       }
-#     },
-#     "healthCheck": {
-#       "command": ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health"],
-#       "interval": 30,
-#       "timeout": 10,
-#       "retries": 3,
-#       "startPeriod": 60
-#     },
-#     "execute_command_configuration" {
-#       logging:"DEFAULT"
-#     }
-#   }
-# ]
-# DEFINITION
-# }
 
 # ----------------------------------------------------------------------------------------------------------------------
 # ECS Exec Policy
@@ -795,20 +717,6 @@ resource "aws_codepipeline" "plantstore_pipeline" {
     aws_iam_role_policy.codepipeline_connection_policy
   ]
 
-  # Adding trigger
-  # trigger {
-  #   type = "webhook"
-  #   configuration = {
-  #     filters = [
-  #       {
-  #         json_path    = "$.ref"
-  #         match_equals = "refs/heads/{Branch}"
-  #       }
-  #     ]
-  #   }
-  #   provider_type = "GitHub"
-  # }
-
   # --------------------------------------------------------------------------------------------------------------------
   # trigger the pipeline for any push or pull request event on any branch, affecting any file path
   # --------------------------------------------------------------------------------------------------------------------
@@ -818,7 +726,15 @@ resource "aws_codepipeline" "plantstore_pipeline" {
       source_action_name = "GitHub_Source"
       push {
         branches {
-          includes = ["feature/backend", "main"]
+          includes = ["feature/backend"]
+        }
+      }
+
+      #for pull_request triggers for merges into feature/test
+      pull_request {
+        events = ["CLOSED"] # Trigger on PR merging
+        branches {
+          includes = ["feature/backend"]
         }
       }
     }
@@ -832,25 +748,6 @@ resource "aws_codepipeline" "plantstore_pipeline" {
   # adding pipeline type
   pipeline_type = "V2"
 
-  # stage {
-  #   name = "Source"
-  #
-  #   action {
-  #     name     = "GitHub_Source"
-  #     category = "Source"
-  #     owner    = "ThirdParty"
-  #     provider = "GitHub"
-  #     version  = "1"
-  #     output_artifacts = ["source_output"]
-  #     configuration = {
-  #       Owner      = var.github_repo_owner
-  #       Repo       = var.github_repo_name
-  #       Branch     = "main"
-  #       OAuthToken = var.github_oauth_token
-  #     }
-  #   }
-  # }
-
   stage {
     name = "Source"
 
@@ -862,7 +759,8 @@ resource "aws_codepipeline" "plantstore_pipeline" {
       version          = "1"
       output_artifacts = ["source_output"]
       configuration = {
-        ConnectionArn    = aws_codestarconnections_connection.github_connection.arn
+        # ConnectionArn    = aws_codestarconnections_connection.github_connection.arn
+        ConnectionArn    = "arn:aws:codeconnections:us-east-1:539247457480:connection/4330607b-4aae-4812-ae7b-22b2375b28f6"
         FullRepositoryId = "${var.github_repo_owner}/${var.github_repo_name}"
         BranchName       = "feature/backend"
       }
@@ -911,25 +809,6 @@ resource "aws_codepipeline" "plantstore_pipeline" {
 # ---------------------------------------------------------------------------------------------------------------------
 # CloudWatch Logs Subscription Filters and Lambda Functions (Terraform, Inline Code)
 # ---------------------------------------------------------------------------------------------------------------------
-
-# Lambda Function for Backend Error Log Processing
-resource "aws_lambda_function" "backend_error_logs_processor_lambda" {
-  function_name    = "backend-error-logs-processor-lambda"
-  role             = aws_iam_role.lambda_execution_role.arn
-  handler          = "lambda_function.lambda_handler"
-  runtime          = "python3.9"
-  timeout          = 15
-  source_code_hash = data.archive_file.backend_lambda_zip.output_base64sha256
-  s3_bucket        = aws_s3_bucket.codepipeline_bucket.id
-  s3_key           = data.archive_file.backend_lambda_zip.output_path
-  depends_on       = [aws_s3_object.backend_lambda_zip_upload]
-  environment {
-    variables = {
-      BEDROCK_MODEL_ID = var.bedrock_model_id
-    }
-  }
-}
-
 # Lambda Execution Role
 resource "aws_iam_role" "lambda_execution_role" {
   name = "lambda-execution-role" # Name of the IAM role
@@ -988,10 +867,10 @@ resource "aws_cloudwatch_log_group" "backend_log_group" {
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "backend_log_subscription_filter" {
-  name            = "backend-log-subscription-filter"                           # Name of the subscription filter
-  log_group_name  = aws_cloudwatch_log_group.backend_log_group.name             # CloudWatch Log group to monitor (backend logs)
-  filter_pattern  = "ERROR"                                                     # Filter pattern to capture ERROR logs
-  destination_arn = aws_lambda_function.backend_error_logs_processor_lambda.arn # Ensure the ECS service is running before creating the filter
+  name            = "backend-log-subscription-filter"                 # Name of the subscription filter
+  log_group_name  = aws_cloudwatch_log_group.backend_log_group.name   # CloudWatch Log group to monitor (backend logs)
+  filter_pattern  = "ERROR"                                           # Filter pattern to capture ERROR logs
+  destination_arn = aws_lambda_function.bit_hound_ai_agent_lambda.arn # Ensure the ECS service is running before creating the filter
   depends_on      = [aws_ecs_service.backend_service]
 }
 
@@ -999,208 +878,57 @@ resource "aws_cloudwatch_log_subscription_filter" "backend_log_subscription_filt
 resource "aws_lambda_permission" "allow_cloudwatch_logs_backend" {
   statement_id  = "AllowExecutionFromCloudWatchLogsBackend"                                                                                  # Unique ID for the permission statement
   action        = "lambda:InvokeFunction"                                                                                                    # Action to allow (invoke Lambda)
-  function_name = aws_lambda_function.backend_error_logs_processor_lambda.function_name                                                      # Lambda function name
+  function_name = aws_lambda_function.bit_hound_ai_agent_lambda.function_name                                                                # Lambda function name
   principal     = "logs.${data.aws_region.current.name}.amazonaws.com"                                                                       # Principal that can invoke the Lambda
   source_arn    = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/backend-app:*" # Source ARN for CloudWatch Logs
 }
 
-# Create zip file for backend AI agent lambda function
-data "archive_file" "backend_lambda_zip" {
-  type                    = "zip"
-  source_content          = <<EOF
-# lambda function integrated with an AI agent
-import json
-import boto3
-import base64
-import os
-
-lambda_client = boto3.client('lambda')
-
-bedrock_runtime = boto3.client(service_name='bedrock-runtime')
-model_id = os.environ['BEDROCK_MODEL_ID'] # get id from env variable
-
-def lambda_handler(event, context):
-    # Ensure the `awslogs` key exists
-    if 'awslogs' not in event or 'data' not in event['awslogs']:
-        print("Invalid event format: Missing 'awslogs.data'")
-        return {'statusCode': 400, 'body': 'Invalid event format'}
-
-    # Decode log data
-    data = base64.b64decode(event['awslogs']['data'])
-    log_data = json.loads(data)
-
-    for log_event in log_data.get('logEvents', []):
-        message = log_event.get('message', '')
-
-        if "ERROR" in message:
-            print(f"Error message: {message}")
-            try:
-
-                # Compiling a prompt
-                prompt = f'As an software engineer Provide a solution and test cases for this error: {message}'
-
-                payload = {
-                    "prompt": f"<s>[INST] {prompt} [/INST]",
-                    "max_tokens": 500,
-                    "temperature": 0.5
-                }
-                # *** AI AGENT INVOCATION ***
-                # The following call sends the error message as a prompt to the Amazon Bedrock model.
-                # # Agentic behavior.
-                response = bedrock_runtime.invoke_model(
-                    modelId=model_id,
-                    accept='application/json',
-                    contentType='application/json',
-                    body=json.dumps(payload),
-                )
-
-                response_body = json.loads(response['body'].read())
-                generated_text = response_body['outputs'][0]['text']
-                # print(f"Bedrock response: {generated_text}")
-
-                # *** INVOKE POST-PROCESSING LAMBDA ***
-                invoke_response = lambda_client.invoke(
-                    FunctionName='post-process-ai-agent-output-lambda',
-                    InvocationType='RequestResponse',
-                    Payload=json.dumps({'body': json.dumps({'generated_text': generated_text})})
-                )
-
-                post_process_result = json.loads(invoke_response['Payload'].read())
-                print(f"Post-processed result: {post_process_result}")
-
-            except Exception as e:
-                print(f"Error invoking Bedrock: {e}")
-    # Return the AI agent's output.
-    return {
-        'statusCode': 200,
-        'body': json.dumps({'generated_text': generated_text})
-    }
-EOF
-  output_path             = "backend_lambda_function.zip"
-  source_content_filename = "lambda_function.py"
-}
-
-# Upload backend zip to S3
-resource "aws_s3_object" "backend_lambda_zip_upload" {
-  bucket = aws_s3_bucket.codepipeline_bucket.id
-  key    = data.archive_file.backend_lambda_zip.output_path
-  source = data.archive_file.backend_lambda_zip.output_path
-  etag   = filemd5(data.archive_file.backend_lambda_zip.output_path)
-}
-
 # ----------------------------------------------------------------------------------------------------------------------
-# Post agent processing
+# AI AGENT LAMBDA FUNCTION - >>>>> BIT- HOUND <<<
 # ----------------------------------------------------------------------------------------------------------------------
-# Lambda Permission for Backend Error Logs Processor to invoke Post-Processing Lambda
-resource "aws_lambda_permission" "allow_backend_error_logs_invoke_post_process" {
-  statement_id  = "AllowBackendErrorLogsInvokePostProcess"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.post_process_ai_agent_output_lambda.function_name
-  principal     = "lambda.amazonaws.com"
-  source_arn    = aws_lambda_function.backend_error_logs_processor_lambda.arn
-}
-
-
-# Lambda Function for Post-Processing AI Agent Output
-resource "aws_lambda_function" "post_process_ai_agent_output_lambda" {
-  function_name    = "post-process-ai-agent-output-lambda"
+# AI Agent Lambda Function
+resource "aws_lambda_function" "bit_hound_ai_agent_lambda" {
+  function_name    = "bit-hound-ai-agent-lambda"
   role             = aws_iam_role.lambda_execution_role.arn
   handler          = "lambda_function.lambda_handler"
   runtime          = "python3.9"
   timeout          = 15
-  source_code_hash = data.archive_file.post_process_lambda_zip.output_base64sha256
+  source_code_hash = data.archive_file.bit_hound_lambda_zip.output_base64sha256
   s3_bucket        = aws_s3_bucket.codepipeline_bucket.id
-  s3_key           = data.archive_file.post_process_lambda_zip.output_path
-  depends_on       = [aws_s3_object.post_process_lambda_zip_upload]
+  s3_key           = data.archive_file.bit_hound_lambda_zip.output_path
+  depends_on       = [aws_s3_object.bit_hound_lambda_zip_upload]
   environment {
     variables = {
       GITHUB_TOKEN      = var.github_oauth_token # Ensure you have this variable defined
       GITHUB_REPO_OWNER = var.github_repo_owner
       GITHUB_REPO_NAME  = var.github_repo_name
-      FILE_PATH         = "savannah-canopy-rest/src/test" # Replace with your file path
-      LINE_NUMBER       = "0"                             # Replace with your line number
+      BEDROCK_MODEL_ID  = var.bedrock_model_id
+      GITHUB_TOKEN      = var.github_oauth_token
     }
   }
   layers = [aws_lambda_layer_version.requests_layer.arn] # Attaching leyer
 }
 
-# Create zip file for post processing AI agent lambda function
-data "archive_file" "post_process_lambda_zip" {
-  type                    = "zip"
-  source_content          = <<EOF
-import json
-import os
-import requests
-
-def lambda_handler(event, context):
-    try:
-        # Extract environment variables
-        github_token = os.environ['GITHUB_TOKEN']
-        repo_owner = os.environ['GITHUB_REPO_OWNER']
-        repo_name = os.environ['GITHUB_REPO_NAME']
-        file_path = os.environ['FILE_PATH']
-        line_number = int(os.environ['LINE_NUMBER'])
-
-        # Extract the AI agent's output
-        body = json.loads(event['body'])
-        generated_text = json.loads(body['generated_text'])
-
-        # Format the output (you can refine this part)
-        formatted_text = f"\\n# AI Agent Suggestion:\\n{generated_text}\\n"
-        print('generated_text')
-
-        # Get the file content
-        headers = {'Authorization': f'token {github_token}'}
-        file_url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{file_path}?ref=main'
-        file_response = requests.get(file_url, headers=headers)
-        file_response.raise_for_status()
-        file_data = file_response.json()
-        file_content = file_data['content']
-        file_sha = file_data['sha']
-
-        # Decode and modify the file content
-        decoded_content = requests.get(file_data['download_url']).text.splitlines()
-        decoded_content.insert(line_number - 1, formatted_text)
-        updated_content = '\\n'.join(decoded_content).encode('utf-8')
-        updated_content_base64 = base64.b64encode(updated_content).decode('utf-8')
-
-        # Commit the changes to a new branch
-        branch_name = f'ai-suggestion-{context.aws_request_id}'
-        create_branch_url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/git/refs'
-        default_branch_sha = requests.get(f'https://api.github.com/repos/{repo_owner}/{repo_name}/git/refs/heads/main', headers=headers).json()['object']['sha']
-        requests.post(create_branch_url, headers=headers, json={'ref': f'refs/heads/{branch_name}', 'sha': default_branch_sha}).raise_for_status()
-
-        # Update the file in the new branch
-        update_file_url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{file_path}'
-        requests.put(update_file_url, headers=headers, json={'message': 'AI agent suggestion', 'content': updated_content_base64, 'sha': file_sha, 'branch': branch_name}).raise_for_status()
-
-        # Create the pull request
-        create_pr_url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/pulls'
-        requests.post(create_pr_url, headers=headers, json={'title': 'AI agent suggestion', 'head': branch_name, 'base': 'feature/test'}).raise_for_status()
-
-        return {'statusCode': 200, 'body': json.dumps({'message': 'Pull request created'})}
-
-    except Exception as e:
-        print(f"Error: {e}")
-        return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
-EOF
-  output_path             = "post_process_lambda_function.zip"
-  source_content_filename = "lambda_function.py"
+# Create zip file for  AI agent lambda function
+data "archive_file" "bit_hound_lambda_zip" {
+  type        = "zip"
+  source_dir  = "./bit-hound-ai-agent"
+  output_path = "bit-hound-ai-agent.zip"
 }
 
-# Upload post processing zip to S3
-resource "aws_s3_object" "post_process_lambda_zip_upload" {
+# Upload AI agent zip to S3
+resource "aws_s3_object" "bit_hound_lambda_zip_upload" {
   bucket = aws_s3_bucket.codepipeline_bucket.id
-  key    = data.archive_file.post_process_lambda_zip.output_path
-  source = data.archive_file.post_process_lambda_zip.output_path
-  etag   = filemd5(data.archive_file.post_process_lambda_zip.output_path)
+  key    = data.archive_file.bit_hound_lambda_zip.output_path
+  source = data.archive_file.bit_hound_lambda_zip.output_path
+  etag   = filemd5(data.archive_file.bit_hound_lambda_zip.output_path)
 }
 
 # Lambda Permission for Post Processing
-resource "aws_lambda_permission" "allow_post_processing_invocation" {
+resource "aws_lambda_permission" "allow_AI_agent_invocation" {
   statement_id  = "AllowExecutionFromAnywhere"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.post_process_ai_agent_output_lambda.function_name
+  function_name = aws_lambda_function.bit_hound_ai_agent_lambda.function_name
   principal     = "*" # Be mindful of security implications. Restrict as needed.
 }
 
@@ -1217,7 +945,7 @@ resource "aws_lambda_layer_version" "requests_layer" {
 }
 
 # -----------------------------------------------------------------------------------------------------------------------
-# network
+# Network
 # -----------------------------------------------------------------------------------------------------------------------
 # VPC and Subnets
 resource "aws_vpc" "main" {
@@ -1271,4 +999,184 @@ resource "aws_route_table_association" "public-subnet-associations" {
   count          = 2
   subnet_id      = aws_subnet.public[count.index].id
   route_table_id = aws_route_table.public-route-table.id
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Test CodePipeline
+# ---------------------------------------------------------------------------------------------------------------------
+
+resource "aws_codepipeline" "plantstore_pipeline_test" {
+  name     = "plantstore-pipeline-test"
+  role_arn = aws_iam_role.codepipeline_role.arn
+
+  depends_on = [
+    aws_codestarconnections_connection.github_connection,
+    aws_iam_role_policy.codepipeline_connection_policy
+  ]
+
+  # --------------------------------------------------------------------------------------------------------------------
+  # trigger the pipeline for any push or pull request event on the feature/test branch
+  # --------------------------------------------------------------------------------------------------------------------
+  trigger {
+    provider_type = "CodeStarSourceConnection"
+    git_configuration {
+      source_action_name = "GitHub_Source"
+      push {
+        branches {
+          includes = ["feature/test"]
+        }
+      }
+      #for pull_request triggers for merges into feature/test
+      pull_request {
+        events = ["CLOSED"] # Trigger on PR merging
+        branches {
+          includes = ["feature/test"]
+        }
+      }
+    }
+  }
+
+  artifact_store {
+    location = aws_s3_bucket.codepipeline_bucket.id # Reusing the same bucket
+    type     = "S3"
+  }
+
+  pipeline_type = "V2" # Reusing V2
+
+  stage {
+    name = "Source"
+
+    action {
+      name             = "GitHub_Source" # Action name within this pipeline
+      category         = "Source"
+      owner            = "AWS"
+      provider         = "CodeStarSourceConnection"
+      version          = "1"
+      output_artifacts = ["source_output_test"] # Use a distinct artifact name
+      configuration = {
+        # ConnectionArn    = aws_codestarconnections_connection.github_connection.arn # Reusing the connection
+        ConnectionArn    = "arn:aws:codeconnections:us-east-1:539247457480:connection/4330607b-4aae-4812-ae7b-22b2375b28f6"
+        FullRepositoryId = "${var.github_repo_owner}/${var.github_repo_name}" # Same repo
+        BranchName       = "feature/test"                                     #Pointing to the test branch
+      }
+    }
+  }
+
+  stage {
+    name = "Build_backend_test"
+
+    action {
+      name             = "Backend_Build_test"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      input_artifacts  = ["source_output_test"]        # Match output artifact from Source stage
+      output_artifacts = ["backend_build_output_test"] # Distinct build output artifact name
+      version          = "1"
+      configuration = {
+        #Point to the existing build project.
+        ProjectName = aws_codebuild_project.backend_build.name
+      }
+    }
+  }
+
+  stage {
+    name = "Deploy_backend_test"
+
+    action {
+      name            = "Deploy_to_ECS_backend_test"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "ECS"
+      input_artifacts = ["backend_build_output_test"]
+      version         = "1"
+      configuration = {
+        ClusterName = aws_ecs_cluster.plantstore_cluster.name   # Same cluster as production
+        ServiceName = aws_ecs_service.backend_service_test.name # using the test service
+        FileName    = "imagedefinitions-backend.json"
+      }
+    }
+  }
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# ECS Service for Testing
+# ---------------------------------------------------------------------------------------------------------------------
+resource "aws_ecs_service" "backend_service_test" {
+  # Use a distinct name for the test service
+  name                              = "${var.ecs_service_name_backend}-test"   # Use a distinct name
+  cluster                           = aws_ecs_cluster.plantstore_cluster.id    # Same cluster
+  task_definition                   = aws_ecs_task_definition.backend_task.arn # Same task definition as production
+  desired_count                     = 1
+  launch_type                       = "FARGATE"
+  health_check_grace_period_seconds = 180
+
+  network_configuration {
+    subnets          = aws_subnet.public[*].id
+    security_groups  = [aws_security_group.backend_sg.id] # Reuse existing SG (ensure it allows access for testing)
+    assign_public_ip = true                               #
+  }
+
+  enable_execute_command = true
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 100
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.backend_target_group_test.arn # Point to the NEW test TG
+    container_name   = "backend"                                         # Match container name in task definition
+    container_port   = 8080
+  }
+
+  depends_on = [
+    aws_lb_target_group.backend_target_group_test,
+  aws_lb_listener.http_listener]
+  # }
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# New Target Group for Test
+# ---------------------------------------------------------------------------------------------------------------------
+resource "aws_lb_target_group" "backend_target_group_test" {
+  name        = "backend-tg-test" # Distinct name
+  port        = 8080
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+
+  health_check {
+    path     = "/actuator/health"
+    protocol = "HTTP"
+    port     = 8080
+  }
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Listener Rule for Test
+# ---------------------------------------------------------------------------------------------------------------------
+resource "aws_lb_listener_rule" "backend_listener_rule_test" {
+  listener_arn = aws_lb_listener.http_listener.arn
+  priority     = 15
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend_target_group_test.arn # Forward to the NEW test TG
+  }
+
+  condition {
+    path_pattern {
+      values = ["/test/"]
+    }
+  }
+
+  # condition {
+  #   host_header {
+  #     values = ["www.savannah-canopy.com"]
+  #   }
+  # }
 }

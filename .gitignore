@@ -41,6 +41,8 @@ terraform/.terraform/providers/**/terraform-provider-aws_*_x5.exe
 
 terraform/terraform.tfvars
 
+terraform/terraform.tfstate.*
+
 terraform/terraform.tfstate
 
 terraform/terraform.tfstate.backup
@@ -48,8 +50,9 @@ terraform/terraform.tfstate.backup
 terraform/requests-layer
 
 # Ignore all files and directories directly inside savannah-canopy/lambda/
-lambda/*
+terraform/lambdas/*
 
 # Now, specifically UN-ignore the directories we want to keep
-!lambda/testing/
-!lambda/lambda_functions/
+!terraform/lambdas/lambda_functions/
+
+terraform1
