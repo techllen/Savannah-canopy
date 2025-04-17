@@ -1,5 +1,8 @@
 package com.plants_store.savannah_canopy.service;
 
+import com.plants_store.savannah_canopy.exception.ErrorContext;
+import com.plants_store.savannah_canopy.exception.PlantNotFoundException;
+
 /**
  * Interface defining operations for applying discounts.
  */
@@ -10,12 +13,8 @@ public interface DiscountService {
      * @param plantId The ID of the plant.
      * @param percentage The discount percentage to apply.
      * @return The calculated price after applying the discount.
-     * @throws com.plants_store.savannah_canopy.exception.ErrorContext if the plant is not found or an error occurs during calculation.
+     * @throws PlantNotFoundException if the plant is not found.
+     * @throws ErrorContext if an error occurs during calculation.
      */
-    double calculateDiscount(Long plantId, int percentage) {
-        if (plantId == null) {
-            throw new ErrorContext("Plant ID is null");
-        }
-        // Calculate discount
-    }
+    double calculateDiscount(Long plantId, int percentage) throws PlantNotFoundException, ErrorContext;
 }
