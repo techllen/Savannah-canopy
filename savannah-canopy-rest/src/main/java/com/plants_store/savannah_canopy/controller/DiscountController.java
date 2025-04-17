@@ -25,7 +25,7 @@ public class DiscountController {
     private static final Logger logger = LoggerFactory.getLogger(DiscountController.class);
 
     @Autowired
-    private DiscountService discountService;
+    private DiscountService discountService; // injecting the interface
 
     @GetMapping("/apply/{id}/{percentage}")
     @Operation(summary = "Apply discount to a plant", description = "Applies a discount percentage to a plant price")
