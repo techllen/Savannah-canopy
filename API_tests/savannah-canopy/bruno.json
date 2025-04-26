@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "savannah-canopy",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

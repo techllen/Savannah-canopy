@@ -1,0 +1,11 @@
+meta {
+  name: healthcheck
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://plantstore-alb-1707025606.us-east-1.elb.amazonaws.com/actuator/health
+  body: none
+  auth: inherit
+}
