@@ -1,2 +1,2 @@
 # Savannah-canopy
-Savannah-canopy online store
+Savannah-canopy online store development repository.
