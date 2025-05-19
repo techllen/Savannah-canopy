@@ -1,6 +1,6 @@
 # Savannah-canopy (Self-Healing Application Pipeline)
 
-This project demonstrates the design and implementation of a self-healing application pipeline as a Savannah-canopy online store using modern AI-powered tools and AWS cloud infrastructure. It was developed by Allen Matare Mwita as part of a Master's thesis in Computer Science at the University of Bridgeport.
+This project demonstrates the design and implementation of a self-healing application pipeline as a Savannah-canopy online store using modern AI-powered tools and AWS cloud infrastructure.
 
 ## 📜 Abstract
 
@@ -8,8 +8,6 @@ The pipeline addresses the persistent challenge of runtime software failures due
 
 - **AI Agents**
 - **Large Language Models (LLMs)**
-- **Retrieval-Augmented Generation (RAG)**
-- **Vector Databases**
 - **AWS Bedrock**
 - **Terraform and AWS infrastructure**
 
@@ -27,10 +25,10 @@ The pipeline addresses the persistent challenge of runtime software failures due
 
 ## 🛠️ Technologies
 
-- **Spring Boot** (Java 17, H2 DB, Swagger, Log4j2)
+- **Spring Boot** (Java , H2 DB, Swagger, Log4j2)
 - **Terraform** for AWS Infrastructure as Code (IaC)
 - **Docker + AWS ECS/ECR** for containerization
-- **AWS Services**: Lambda, CloudWatch, SQS, DynamoDB, Bedrock, CodePipeline, CodeBuild
+- **AWS Services**: Lambda, CloudWatch, Bedrock, CodePipeline, CodeBuild
 - **GitHub**: Version control, PR management, email notifications
 - **Bruno API Client**: API testing
 
