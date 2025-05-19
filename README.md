@@ -1,5 +1,4 @@
-# Savannah-canopy
-> Self-Healing Application Pipeline
+# Savannah-canopy (Self-Healing Application Pipeline)
 
 This project demonstrates the design and implementation of a self-healing application pipeline as a Savannah-canopy online store using modern AI-powered tools and AWS cloud infrastructure. It was developed by Allen Matare Mwita as part of a Master's thesis in Computer Science at the University of Bridgeport.
 
