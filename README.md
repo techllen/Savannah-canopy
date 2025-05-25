@@ -2,7 +2,9 @@
 
 This project demonstrates the design and implementation of a self-healing application pipeline as a Savannah-canopy online store using modern AI-powered tools and AWS cloud infrastructure.
 
-<img src="https://github.com/techllen/Savannah-canopy/blob/main/screenshots/Self%20Healing%20Application%20Pipeline%20Architecture-Page-2.jpg" alt="Pipeline Architecture" width="300" height="200">
+## Architectural Diagram
+
+<img src="https://github.com/techllen/Savannah-canopy/blob/main/screenshots/Self%20Healing%20Application%20Pipeline%20Architecture-Page-2.jpg" alt="Pipeline Architecture">
 
 ## 📜 Abstract
 
