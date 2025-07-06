@@ -11,8 +11,7 @@ This project demonstrates the design and implementation of a self-healing applic
 The pipeline addresses the persistent challenge of runtime software failures due to bugs, system faults, or misconfigurations. Traditional solutions typically generate alerts without providing contextual insights or fixes. This project introduces a novel, intelligent pipeline that utilizes:
 
 - **AI Agents**
-- **Large Language Models (LLMs)**
-- **AWS Bedrock**
+- **Large Language Models (LLMs - AWS Bedrock)**
 - **Terraform and AWS infrastructure**
 
 ...to detect, analyze, and autonomously attempt to resolve application issues with minimal human intervention.
